@@ -1,0 +1,61 @@
+{
+  "name": "PulsePay - Infrastructure",
+  "dockerComposeFile": "docker-compose.yaml",
+  "service": "devcontainer",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "none",
+
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false,
+      "installDockerBuildx": true,
+      "version": "latest",
+      "dockerDashComposeVersion": "v2"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "ckolkman.vscode-postgres",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-mysql",
+        "mtxr.sqltools-driver-pg",
+        "humao.rest-client",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh"
+      }
+    }
+  },
+
+  "forwardPorts": [
+    15432,
+    13306,
+    16379,
+    14566,
+    19200,
+    19090,
+    13000,
+    16686,
+    14317,
+    14318
+  ],
+
+  "portsAttributes": {
+    "15432": { "label": "PostgreSQL (Orders + Outbox)" },
+    "13306": { "label": "MySQL (Ledger)" },
+    "16379": { "label": "Redis (Cache)" },
+    "14566": { "label": "LocalStack (SQS/SNS)" },
+    "19200": { "label": "Elasticsearch (Search)" },
+    "19090": { "label": "Prometheus (Metrics)" },
+    "13000": { "label": "Grafana (Dashboards)" },
+    "16686": { "label": "Jaeger (Tracing)" },
+    "14317": { "label": "OTEL gRPC" },
+    "14318": { "label": "OTEL HTTP" }
+  },
+
+  "postStartCommand": "echo '✅ Infrastructure ready! Run: infra-status'"
+}

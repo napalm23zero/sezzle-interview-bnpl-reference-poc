@@ -1,0 +1,212 @@
+# ┌───────────────────────────────────────────┐
+# │  PulsePay Infrastructure                  │
+# │  for development use ONLY                 │
+# └───────────────────────────────────────────┘
+
+services:
+
+  devcontainer:
+    build:
+      context: ./docker
+      dockerfile: devcontainer.Dockerfile
+    container_name: pulsepay-devcontainer
+    volumes:
+      - ..:/workspace:cached
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - ${NETWORK_NAME}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  postgres:
+    build:
+      context: ./docker
+      dockerfile: postgres.Dockerfile
+    container_name: pulsepay-postgres
+    ports:
+      - "${POSTGRES_PORT_EXTERNAL}:${POSTGRES_PORT_INTERNAL}"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./config/postgres.conf:/etc/postgresql/postgresql.conf
+      - ./init/postgres:/docker-entrypoint-initdb.d
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    networks:
+      - ${NETWORK_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mysql:
+    build:
+      context: ./docker
+      dockerfile: mysql.Dockerfile
+    container_name: pulsepay-mysql
+    ports:
+      - "${MYSQL_PORT_EXTERNAL}:${MYSQL_PORT_INTERNAL}"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./config/mysql.cnf:/etc/mysql/conf.d/custom.cnf
+      - ./init/mysql:/docker-entrypoint-initdb.d
+    networks:
+      - ${NETWORK_NAME}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    build:
+      context: ./docker
+      dockerfile: redis.Dockerfile
+    container_name: pulsepay-redis
+    ports:
+      - "${REDIS_PORT_EXTERNAL}:${REDIS_PORT_INTERNAL}"
+    volumes:
+      - redis-data:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - ${NETWORK_NAME}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    build:
+      context: ./docker
+      dockerfile: elasticsearch.Dockerfile
+    container_name: pulsepay-elasticsearch
+    ports:
+      - "${ELASTICSEARCH_PORT_HTTP_EXTERNAL}:${ELASTICSEARCH_PORT_HTTP_INTERNAL}"
+      - "${ELASTICSEARCH_PORT_TRANSPORT_EXTERNAL}:${ELASTICSEARCH_PORT_TRANSPORT_INTERNAL}"
+    environment:
+      - ES_JAVA_OPTS=${ELASTICSEARCH_JAVA_OPTS}
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - ${NETWORK_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  localstack:
+    build:
+      context: ./docker
+      dockerfile: localstack.Dockerfile
+    container_name: pulsepay-localstack
+    ports:
+      - "${LOCALSTACK_PORT_EXTERNAL}:${LOCALSTACK_PORT_INTERNAL}"
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - ./init/localstack:/etc/localstack/init/ready.d
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - ${NETWORK_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:4566/_localstack/health | grep -q '\"sqs\": \"available\"' || curl -s http://localhost:4566/_localstack/health | grep -q '\"sqs\": \"running\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  otel-collector:
+    build:
+      context: ./docker
+      dockerfile: otel-collector.Dockerfile
+    container_name: pulsepay-otel-collector
+    ports:
+      - "${OTEL_GRPC_PORT_EXTERNAL}:${OTEL_GRPC_PORT_INTERNAL}"
+      - "${OTEL_HTTP_PORT_EXTERNAL}:${OTEL_HTTP_PORT_INTERNAL}"
+      - "${OTEL_METRICS_PORT_EXTERNAL}:${OTEL_METRICS_PORT_INTERNAL}"
+      - "${OTEL_PROMETHEUS_PORT_EXTERNAL}:${OTEL_PROMETHEUS_PORT_INTERNAL}"
+    volumes:
+      - ./config/otel-collector.yaml:/etc/otelcol-contrib/config.yaml
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    networks:
+      - ${NETWORK_NAME}
+    depends_on:
+      - jaeger
+      - prometheus
+
+  jaeger:
+    build:
+      context: ./docker
+      dockerfile: jaeger.Dockerfile
+    container_name: pulsepay-jaeger
+    ports:
+      - "${JAEGER_UI_PORT_EXTERNAL}:${JAEGER_UI_PORT_INTERNAL}"
+      - "${JAEGER_COLLECTOR_HTTP_PORT_EXTERNAL}:${JAEGER_COLLECTOR_HTTP_PORT_INTERNAL}"
+      - "${JAEGER_COLLECTOR_GRPC_PORT_EXTERNAL}:${JAEGER_COLLECTOR_GRPC_PORT_INTERNAL}"
+    networks:
+      - ${NETWORK_NAME}
+
+  prometheus:
+    build:
+      context: ./docker
+      dockerfile: prometheus.Dockerfile
+    container_name: pulsepay-prometheus
+    ports:
+      - "${PROMETHEUS_PORT_EXTERNAL}:${PROMETHEUS_PORT_INTERNAL}"
+    volumes:
+      - ./config/prometheus.yaml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - ${NETWORK_NAME}
+
+  grafana:
+    build:
+      context: ./docker
+      dockerfile: grafana.Dockerfile
+    container_name: pulsepay-grafana
+    ports:
+      - "${GRAFANA_PORT_EXTERNAL}:${GRAFANA_PORT_INTERNAL}"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - ${NETWORK_NAME}
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres-data:
+  mysql-data:
+  redis-data:
+  elasticsearch-data:
+  localstack-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  pulsepay-network:
+    name: ${NETWORK_NAME}
+    driver: bridge

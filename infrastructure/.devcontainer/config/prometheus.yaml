@@ -1,0 +1,39 @@
+# ┌───────────────────────────────────────────┐
+# │  Prometheus Configuration                 │
+# │  Metrics scraping from all services       │
+# │  for development use ONLY                 │
+# └───────────────────────────────────────────┘
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'api-gateway'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['api-gateway:3001']
+
+  - job_name: 'orders-service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['orders-service:3002']
+
+  - job_name: 'outbox-relay'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['outbox-relay:8081']
+
+  - job_name: 'credit-engine'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['credit-engine:8082']
+
+  - job_name: 'ledger-processor'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['ledger-processor:8083']
+
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8888']
