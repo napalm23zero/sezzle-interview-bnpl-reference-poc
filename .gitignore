@@ -1,53 +1,68 @@
-# Dependencies
-node_modules/
-vendor/
+# ============================================
+# ROOT .gitignore - PulsePay Monorepo
+# ============================================
+# This file contains GLOBAL rules that apply to ALL projects.
+# Each subproject has its own .gitignore for project-specific rules.
+# Git automatically uses all .gitignore files hierarchically.
+# ============================================
 
-# Build outputs
-dist/
-build/
-bin/
-*.exe
+# ----------------------
+# Operating System
+# ----------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# IDE
+# ----------------------
+# IDEs & Editors
+# ----------------------
 .idea/
 *.swp
 *.swo
+*~
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.sublime-workspace
+*.sublime-project
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Environment
+# ----------------------
+# Environment Files
+# ----------------------
 .env
 .env.local
 .env.*.local
 *.local.env
+!.env.example
 
+# ----------------------
 # Logs
+# ----------------------
 logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# Testing
-coverage/
-.nyc_output/
-
-# Docker volumes (local dev)
+# ----------------------
+# Docker (local dev data)
+# ----------------------
 .docker-data/
 
-# Temporary files
+# ----------------------
+# Temporary Files
+# ----------------------
 tmp/
 temp/
 *.tmp
+.tmp/
+.temp/
 
-# Go
-*.out
-go.work
-
-# Project control (internal)
+# ----------------------
+# Project Control (internal only)
+# ----------------------
 TODO.md

@@ -1,0 +1,28 @@
+# ============================================
+# Infrastructure .gitignore
+# ============================================
+# Project-specific rules. Global rules are in root .gitignore
+# ============================================
+
+# ----------------------
+# Docker Volume Data
+# ----------------------
+.data/
+postgres-data/
+mysql-data/
+redis-data/
+elasticsearch-data/
+
+# ----------------------
+# LocalStack Data
+# ----------------------
+.localstack/
+volume/
+
+# ----------------------
+# Secrets (never commit)
+# ----------------------
+*.pem
+*.key
+*.crt
+secrets/

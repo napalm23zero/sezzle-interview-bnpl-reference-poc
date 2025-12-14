@@ -1,0 +1,44 @@
+# ============================================
+# API Gateway .gitignore (Node.js/TypeScript)
+# ============================================
+# Project-specific rules. Global rules are in root .gitignore
+# ============================================
+
+# ----------------------
+# Dependencies
+# ----------------------
+node_modules/
+
+# ----------------------
+# Build Output
+# ----------------------
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# ----------------------
+# Package Manager Logs
+# ----------------------
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# ----------------------
+# Test Coverage
+# ----------------------
+coverage/
+.nyc_output/
+
+# ----------------------
+# Debug
+# ----------------------
+.debug/
+
+# ----------------------
+# Personal TODO
+# ----------------------
+TODO.md
+

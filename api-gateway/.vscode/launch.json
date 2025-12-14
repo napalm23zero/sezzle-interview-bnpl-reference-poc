@@ -1,0 +1,70 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "🟢 DEV",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": ["watch", "${workspaceFolder}/src/index.ts"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "killBehavior": "forceful",
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": "3000",
+        "LOG_LEVEL": "debug"
+      },
+      "preLaunchTask": "🔄 Kill Port 3000"
+    },
+    {
+      "name": "🟡 UAT",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": ["watch", "${workspaceFolder}/src/index.ts"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "killBehavior": "forceful",
+      "env": {
+        "NODE_ENV": "uat",
+        "PORT": "3000",
+        "LOG_LEVEL": "info"
+      },
+      "preLaunchTask": "🔄 Kill Port 3000"
+    },
+    {
+      "name": "🔴 PROD",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": ["${workspaceFolder}/src/index.ts"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "killBehavior": "forceful",
+      "envFile": "${workspaceFolder}/.env",
+      "preLaunchTask": "🔄 Kill Port 3000"
+    },
+    {
+      "name": "🐞 Debug (No Watch)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": ["${workspaceFolder}/src/index.ts"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "killBehavior": "forceful",
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": "3000",
+        "LOG_LEVEL": "debug"
+      },
+      "preLaunchTask": "🔄 Kill Port 3000",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}
