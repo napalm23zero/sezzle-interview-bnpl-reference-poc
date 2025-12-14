@@ -94,8 +94,14 @@ export const config = {
 
   // OpenTelemetry
   otel: {
+    enabled: parseBoolean(process.env.OTEL_ENABLED, false),
     endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
     serviceName: process.env.OTEL_SERVICE_NAME || 'api-gateway',
+  },
+
+  // Metrics (Prometheus)
+  metrics: {
+    enabled: parseBoolean(process.env.METRICS_ENABLED, true),
   },
 } as const;
 

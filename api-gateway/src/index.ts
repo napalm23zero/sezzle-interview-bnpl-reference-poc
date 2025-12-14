@@ -3,7 +3,14 @@
  *
  * Lightweight reverse proxy for PulsePay platform.
  * This is a "dumb proxy" - no business logic, just routing + middleware.
+ *
+ * IMPORTANT: OpenTelemetry must be initialized BEFORE importing other modules
+ * to ensure proper auto-instrumentation of HTTP, Redis, etc.
  */
+
+// Initialize OpenTelemetry first (before any other imports that might use HTTP)
+import { initTracing } from './plugins/tracing.js';
+initTracing();
 
 import { buildApp } from './app.js';
 import { config } from './config/index.js';

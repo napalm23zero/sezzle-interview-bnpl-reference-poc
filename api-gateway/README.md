@@ -60,15 +60,15 @@ We chose **plain Node.js/Fastify** instead of NestJS because:
 
 ## ✅ What It DOES
 
-| Responsibility       | Description                                                                                                           | Implementation                |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| **Correlation ID**   | Generates a secure, non-predictable ID per request using UUID + SHA256 salt, propagates via `X-Correlation-ID` header | Plugin                        |
-| **Rate Limiting**    | Limits requests per IP (100/min default), Redis-backed for distributed environments                                   | `@fastify/rate-limit` + Redis |
-| **Error Handling**   | Standardized error responses following RFC 7807 with enhanced fields for debugging                                    | Plugin + Error Classes        |
-| **Request Logging**  | Structured JSON log for each request                                                                                  | Pino logger                   |
-| **OpenTelemetry**    | Starts spans and propagates trace context                                                                             | `@opentelemetry/sdk-node`     |
-| **Health Check**     | `/health` endpoint for load balancers                                                                                 | Route handler                 |
-| **Proxy Pass**       | Forwards requests to internal services                                                                                | `@fastify/http-proxy`         |
+| Responsibility      | Description                                                                                                           | Implementation                |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| **Correlation ID**  | Generates a secure, non-predictable ID per request using UUID + SHA256 salt, propagates via `X-Correlation-ID` header | Plugin                        |
+| **Rate Limiting**   | Limits requests per IP (100/min default), Redis-backed for distributed environments                                   | `@fastify/rate-limit` + Redis |
+| **Error Handling**  | Standardized error responses following RFC 7807 with enhanced fields for debugging                                    | Plugin + Error Classes        |
+| **Request Logging** | Structured JSON log for each request                                                                                  | Pino logger                   |
+| **OpenTelemetry**   | Starts spans and propagates trace context                                                                             | `@opentelemetry/sdk-node`     |
+| **Health Check**    | `/health` endpoint for load balancers                                                                                 | Route handler                 |
+| **Proxy Pass**      | Forwards requests to internal services                                                                                | `@fastify/http-proxy`         |
 
 ---
 
@@ -152,34 +152,34 @@ All errors follow a **standardized response format** inspired by RFC 7807 (Probl
 
 ### Error Fields
 
-| Field           | Type     | Description                                      |
-| --------------- | -------- | ------------------------------------------------ |
-| `success`       | boolean  | Always `false` for errors                        |
-| `code`          | string   | Machine-readable error code (e.g., `BAD_REQUEST`) |
-| `message`       | string   | Human-readable message (safe for end users)      |
-| `details`       | string?  | Technical details (development only)             |
-| `timestamp`     | string   | ISO 8601 timestamp                               |
-| `path`          | string   | Request path                                     |
-| `method`        | string   | HTTP method                                      |
-| `correlationId` | string   | Unique request ID for tracing                    |
-| `retryAfter`    | number?  | Seconds to wait (for rate limit errors)          |
-| `docs`          | string   | Link to error documentation                      |
+| Field           | Type    | Description                                       |
+| --------------- | ------- | ------------------------------------------------- |
+| `success`       | boolean | Always `false` for errors                         |
+| `code`          | string  | Machine-readable error code (e.g., `BAD_REQUEST`) |
+| `message`       | string  | Human-readable message (safe for end users)       |
+| `details`       | string? | Technical details (development only)              |
+| `timestamp`     | string  | ISO 8601 timestamp                                |
+| `path`          | string  | Request path                                      |
+| `method`        | string  | HTTP method                                       |
+| `correlationId` | string  | Unique request ID for tracing                     |
+| `retryAfter`    | number? | Seconds to wait (for rate limit errors)           |
+| `docs`          | string  | Link to error documentation                       |
 
 ### Error Codes
 
-| Code                   | HTTP Status | Description                          |
-| ---------------------- | ----------- | ------------------------------------ |
-| `BAD_REQUEST`          | 400         | Invalid request syntax               |
-| `VALIDATION_FAILED`    | 400         | Request validation failed            |
-| `UNAUTHORIZED`         | 401         | Authentication required              |
-| `FORBIDDEN`            | 403         | Insufficient permissions             |
-| `RESOURCE_NOT_FOUND`   | 404         | Resource or route not found          |
-| `METHOD_NOT_ALLOWED`   | 405         | HTTP method not supported            |
-| `CONFLICT`             | 409         | Resource conflict                    |
-| `RATE_LIMIT_EXCEEDED`  | 429         | Too many requests                    |
-| `INTERNAL_ERROR`       | 500         | Unexpected server error              |
-| `SERVICE_UNAVAILABLE`  | 503         | Service temporarily unavailable      |
-| `GATEWAY_TIMEOUT`      | 504         | Upstream service timeout             |
+| Code                  | HTTP Status | Description                     |
+| --------------------- | ----------- | ------------------------------- |
+| `BAD_REQUEST`         | 400         | Invalid request syntax          |
+| `VALIDATION_FAILED`   | 400         | Request validation failed       |
+| `UNAUTHORIZED`        | 401         | Authentication required         |
+| `FORBIDDEN`           | 403         | Insufficient permissions        |
+| `RESOURCE_NOT_FOUND`  | 404         | Resource or route not found     |
+| `METHOD_NOT_ALLOWED`  | 405         | HTTP method not supported       |
+| `CONFLICT`            | 409         | Resource conflict               |
+| `RATE_LIMIT_EXCEEDED` | 429         | Too many requests               |
+| `INTERNAL_ERROR`      | 500         | Unexpected server error         |
+| `SERVICE_UNAVAILABLE` | 503         | Service temporarily unavailable |
+| `GATEWAY_TIMEOUT`     | 504         | Upstream service timeout        |
 
 ### Usage in Code
 
@@ -196,9 +196,11 @@ throw new ApiException(ErrorCodes.RATE_LIMIT_EXCEEDED, 'Too many requests', 60);
 ### Example Responses
 
 **Rate Limit Exceeded (429):**
+
 ```bash
 curl -s http://localhost:3000/health  # After 10+ requests in 60s
 ```
+
 ```json
 {
   "success": false,
@@ -212,9 +214,11 @@ curl -s http://localhost:3000/health  # After 10+ requests in 60s
 ```
 
 **Not Found (404):**
+
 ```bash
 curl -s http://localhost:3000/nonexistent
 ```
+
 ```json
 {
   "success": false,
@@ -235,14 +239,14 @@ The gateway protects against abuse with distributed rate limiting using Redis.
 
 ### Configuration
 
-| Variable               | Default | Description                    |
-| ---------------------- | ------- | ------------------------------ |
-| `RATE_LIMIT_ENABLED`   | `false` | Enable/disable rate limiting   |
+| Variable               | Default | Description                             |
+| ---------------------- | ------- | --------------------------------------- |
+| `RATE_LIMIT_ENABLED`   | `false` | Enable/disable rate limiting            |
 | `RATE_LIMIT_USE_REDIS` | `false` | Use Redis for distributed rate limiting |
-| `RATE_LIMIT_MAX`       | `100`   | Max requests per window        |
-| `RATE_LIMIT_WINDOW_MS` | `60000` | Window duration in ms (1 min)  |
-| `REDIS_ENABLED`        | `false` | Enable Redis connection        |
-| `REDIS_URL`            | -       | Redis connection URL           |
+| `RATE_LIMIT_MAX`       | `100`   | Max requests per window                 |
+| `RATE_LIMIT_WINDOW_MS` | `60000` | Window duration in ms (1 min)           |
+| `REDIS_ENABLED`        | `false` | Enable Redis connection                 |
+| `REDIS_URL`            | -       | Redis connection URL                    |
 
 ### Response Headers
 
@@ -266,7 +270,98 @@ for i in {1..11}; do curl -s -w "HTTP %{http_code}\n" http://localhost:3000/heal
 
 ---
 
-## 🔀 Routing
+## � Observability
+
+The gateway provides comprehensive observability through tracing, metrics, and structured logging.
+
+### Infrastructure Integration
+
+| Component       | Container                 | Port  | Purpose                    |
+| --------------- | ------------------------- | ----- | -------------------------- |
+| OTEL Collector  | `pulse-otel-collector`    | 4318  | Receives traces/metrics    |
+| Jaeger          | `pulse-jaeger`            | 16686 | Trace visualization        |
+| Prometheus      | `pulse-prometheus`        | 9090  | Metrics collection         |
+| Grafana         | `pulse-grafana`           | 3000  | Dashboards                 |
+
+### Tracing (OpenTelemetry)
+
+Distributed tracing is enabled via `OTEL_ENABLED=true`. Traces are exported to the OTEL Collector which forwards them to Jaeger.
+
+```bash
+# View traces in Jaeger UI
+open http://localhost:16686
+# Search for: service=api-gateway
+```
+
+Each trace includes:
+- Correlation ID as span attribute
+- HTTP method, route, status code
+- Request duration
+- Error details (for 5xx responses)
+
+### Metrics (Prometheus)
+
+The `/metrics` endpoint exposes Prometheus-format metrics.
+
+```bash
+curl http://localhost:3000/metrics
+```
+
+**Custom Metrics:**
+
+| Metric                                   | Type      | Labels                        | Description                    |
+| ---------------------------------------- | --------- | ----------------------------- | ------------------------------ |
+| `gateway_http_requests_total`            | Counter   | method, route, status_code    | Total HTTP requests            |
+| `gateway_http_request_duration_seconds`  | Histogram | method, route, status_code    | Request duration distribution  |
+| `gateway_rate_limit_hits_total`          | Counter   | route                         | Rate limit exceeded count      |
+| `gateway_active_connections`             | Gauge     | -                             | Current active connections     |
+
+**Node.js Metrics (auto-collected):**
+
+- `gateway_process_cpu_*` - CPU usage
+- `gateway_process_resident_memory_bytes` - Memory usage
+- `gateway_nodejs_eventloop_lag_seconds` - Event loop lag
+- `gateway_nodejs_heap_*` - Heap statistics
+
+### Structured Logging
+
+All requests are logged in structured JSON format with:
+
+```json
+{
+  "level": "info",
+  "time": "2025-12-14T04:35:00.000Z",
+  "msg": "request completed",
+  "correlationId": "35d23671-...",
+  "method": "GET",
+  "url": "/health",
+  "statusCode": 200,
+  "durationMs": 1.25,
+  "ip": "127.0.0.1",
+  "traceId": "abc123...",
+  "spanId": "def456..."
+}
+```
+
+Features:
+- Automatic correlation ID in all log entries
+- Trace/span IDs when OTEL is enabled
+- Sensitive headers redacted (Authorization, Cookie, etc.)
+- Different log levels based on status code (info: 2xx, warn: 4xx, error: 5xx)
+
+### Configuration
+
+| Variable                      | Default       | Description                    |
+| ----------------------------- | ------------- | ------------------------------ |
+| `OTEL_ENABLED`                | `false`       | Enable OpenTelemetry tracing   |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | -             | OTEL Collector URL             |
+| `OTEL_SERVICE_NAME`           | `api-gateway` | Service name in traces         |
+| `METRICS_ENABLED`             | `true`        | Enable /metrics endpoint       |
+| `LOG_LEVEL`                   | `debug`       | Pino log level                 |
+
+---
+
+## �🔀 Routing
 
 | Method | External Path        | Internal Target                           | Service            |
 | ------ | -------------------- | ----------------------------------------- | ------------------ |
@@ -299,12 +394,13 @@ api-gateway/
 │   ├── plugins/                # Fastify plugins
 │   │   ├── correlation-id.ts   # X-Correlation-ID middleware
 │   │   ├── error-handler.ts    # Global error handler
+│   │   ├── metrics.ts          # Prometheus /metrics endpoint
 │   │   ├── rate-limit.ts       # Rate limiting config
 │   │   ├── request-logger.ts   # Structured logging
 │   │   └── tracing.ts          # OpenTelemetry setup
 │   │
 │   ├── routes/
-│   │   ├── health.ts           # /health, /ready, /metrics
+│   │   ├── health.ts           # /health, /ready
 │   │   └── proxy.ts            # Proxy routes to services
 │   │
 │   └── config/
@@ -327,19 +423,23 @@ api-gateway/
 
 ## 🔧 Configuration (Environment Variables)
 
-| Variable                      | Default                        | Description                          |
-| ----------------------------- | ------------------------------ | ------------------------------------ |
-| `PORT`                        | `3000`                         | Server port                          |
-| `NODE_ENV`                    | `development`                  | Runtime environment                  |
-| `LOG_LEVEL`                   | `debug`                        | Log level (debug, info, warn, error) |
-| `ORDERS_SERVICE_URL`          | `http://orders-service:3001`   | orders-service URL                   |
-| `SEARCH_SERVICE_URL`          | `http://search-service:3002`   | search-service URL                   |
-| `WEBHOOKS_SERVICE_URL`        | `http://webhooks-service:3003` | webhooks-service URL                 |
-| `REDIS_URL`                   | `redis://redis:6379`           | Redis for rate limiting              |
-| `RATE_LIMIT_MAX`              | `100`                          | Max requests per window              |
-| `RATE_LIMIT_WINDOW_MS`        | `60000`                        | Window in ms (1 min)                 |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://otel-collector:4318`   | OpenTelemetry collector endpoint     |
-| `OTEL_SERVICE_NAME`           | `api-gateway`                  | Service name for tracing             |
+| Variable                      | Default                           | Description                          |
+| ----------------------------- | --------------------------------- | ------------------------------------ |
+| `PORT`                        | `3000`                            | Server port                          |
+| `NODE_ENV`                    | `development`                     | Runtime environment                  |
+| `LOG_LEVEL`                   | `debug`                           | Log level (debug, info, warn, error) |
+| `REDIS_URL`                   | -                                 | Redis for rate limiting              |
+| `REDIS_ENABLED`               | `false`                           | Enable Redis connection              |
+| `RATE_LIMIT_ENABLED`          | `true`                            | Enable rate limiting                 |
+| `RATE_LIMIT_MAX`              | `100`                             | Max requests per window              |
+| `RATE_LIMIT_WINDOW_MS`        | `60000`                           | Window in ms (1 min)                 |
+| `OTEL_ENABLED`                | `false`                           | Enable OpenTelemetry tracing         |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | -                                 | OTEL Collector endpoint              |
+| `OTEL_SERVICE_NAME`           | `api-gateway`                     | Service name for tracing             |
+| `METRICS_ENABLED`             | `true`                            | Enable Prometheus /metrics endpoint  |
+| `ORDERS_SERVICE_URL`          | -                                 | orders-service URL                   |
+| `SEARCH_SERVICE_URL`          | -                                 | search-service URL                   |
+| `WEBHOOKS_SERVICE_URL`        | -                                 | webhooks-service URL                 |
 
 ---
 

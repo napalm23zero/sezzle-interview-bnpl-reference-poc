@@ -1,7 +1,8 @@
 /**
  * Health Check Routes
  *
- * Endpoints for load balancers (health), orchestrators (ready), and monitoring (metrics).
+ * Endpoints for load balancers (health) and orchestrators (ready).
+ * Note: /metrics is handled by the metrics plugin (src/plugins/metrics.ts)
  */
 
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -46,22 +47,5 @@ export async function healthRoutes(app: FastifyInstance) {
       timestamp: new Date().toISOString(),
       checks,
     };
-  });
-
-  /**
-   * GET /metrics
-   * Prometheus metrics endpoint (placeholder)
-   */
-  app.get('/metrics', async (_request: FastifyRequest, reply: FastifyReply) => {
-    // TODO: Implement Prometheus metrics
-    reply.type('text/plain');
-    return `# HELP api_gateway_up API Gateway is up
-# TYPE api_gateway_up gauge
-api_gateway_up 1
-
-# HELP api_gateway_uptime_seconds API Gateway uptime in seconds
-# TYPE api_gateway_uptime_seconds gauge
-api_gateway_uptime_seconds ${process.uptime()}
-`;
   });
 }
