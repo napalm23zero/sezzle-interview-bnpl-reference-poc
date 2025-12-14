@@ -20,15 +20,18 @@ export async function healthRoutes(app: FastifyInstance) {
    * GET /health
    * Liveness probe - is the service running?
    */
-  app.get('/health', async (_request: FastifyRequest, _reply: FastifyReply): Promise<HealthResponse> => {
-    return {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      service: 'api-gateway',
-      version: '0.1.0',
-      uptime: process.uptime(),
-    };
-  });
+  app.get(
+    '/health',
+    async (_request: FastifyRequest, _reply: FastifyReply): Promise<HealthResponse> => {
+      return {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        service: 'api-gateway',
+        version: '0.1.0',
+        uptime: process.uptime(),
+      };
+    },
+  );
 
   /**
    * GET /ready

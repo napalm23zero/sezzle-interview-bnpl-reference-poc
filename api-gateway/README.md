@@ -276,12 +276,12 @@ The gateway provides comprehensive observability through tracing, metrics, and s
 
 ### Infrastructure Integration
 
-| Component       | Container                 | Port  | Purpose                    |
-| --------------- | ------------------------- | ----- | -------------------------- |
-| OTEL Collector  | `pulse-otel-collector`    | 4318  | Receives traces/metrics    |
-| Jaeger          | `pulse-jaeger`            | 16686 | Trace visualization        |
-| Prometheus      | `pulse-prometheus`        | 9090  | Metrics collection         |
-| Grafana         | `pulse-grafana`           | 3000  | Dashboards                 |
+| Component      | Container              | Port  | Purpose                 |
+| -------------- | ---------------------- | ----- | ----------------------- |
+| OTEL Collector | `pulse-otel-collector` | 4318  | Receives traces/metrics |
+| Jaeger         | `pulse-jaeger`         | 16686 | Trace visualization     |
+| Prometheus     | `pulse-prometheus`     | 9090  | Metrics collection      |
+| Grafana        | `pulse-grafana`        | 3000  | Dashboards              |
 
 ### Tracing (OpenTelemetry)
 
@@ -294,6 +294,7 @@ open http://localhost:16686
 ```
 
 Each trace includes:
+
 - Correlation ID as span attribute
 - HTTP method, route, status code
 - Request duration
@@ -309,12 +310,12 @@ curl http://localhost:3000/metrics
 
 **Custom Metrics:**
 
-| Metric                                   | Type      | Labels                        | Description                    |
-| ---------------------------------------- | --------- | ----------------------------- | ------------------------------ |
-| `gateway_http_requests_total`            | Counter   | method, route, status_code    | Total HTTP requests            |
-| `gateway_http_request_duration_seconds`  | Histogram | method, route, status_code    | Request duration distribution  |
-| `gateway_rate_limit_hits_total`          | Counter   | route                         | Rate limit exceeded count      |
-| `gateway_active_connections`             | Gauge     | -                             | Current active connections     |
+| Metric                                  | Type      | Labels                     | Description                   |
+| --------------------------------------- | --------- | -------------------------- | ----------------------------- |
+| `gateway_http_requests_total`           | Counter   | method, route, status_code | Total HTTP requests           |
+| `gateway_http_request_duration_seconds` | Histogram | method, route, status_code | Request duration distribution |
+| `gateway_rate_limit_hits_total`         | Counter   | route                      | Rate limit exceeded count     |
+| `gateway_active_connections`            | Gauge     | -                          | Current active connections    |
 
 **Node.js Metrics (auto-collected):**
 
@@ -344,6 +345,7 @@ All requests are logged in structured JSON format with:
 ```
 
 Features:
+
 - Automatic correlation ID in all log entries
 - Trace/span IDs when OTEL is enabled
 - Sensitive headers redacted (Authorization, Cookie, etc.)
@@ -351,13 +353,13 @@ Features:
 
 ### Configuration
 
-| Variable                      | Default       | Description                    |
-| ----------------------------- | ------------- | ------------------------------ |
-| `OTEL_ENABLED`                | `false`       | Enable OpenTelemetry tracing   |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | -             | OTEL Collector URL             |
-| `OTEL_SERVICE_NAME`           | `api-gateway` | Service name in traces         |
-| `METRICS_ENABLED`             | `true`        | Enable /metrics endpoint       |
-| `LOG_LEVEL`                   | `debug`       | Pino log level                 |
+| Variable                      | Default       | Description                  |
+| ----------------------------- | ------------- | ---------------------------- |
+| `OTEL_ENABLED`                | `false`       | Enable OpenTelemetry tracing |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | -             | OTEL Collector URL           |
+| `OTEL_SERVICE_NAME`           | `api-gateway` | Service name in traces       |
+| `METRICS_ENABLED`             | `true`        | Enable /metrics endpoint     |
+| `LOG_LEVEL`                   | `debug`       | Pino log level               |
 
 ---
 
@@ -423,23 +425,23 @@ api-gateway/
 
 ## 🔧 Configuration (Environment Variables)
 
-| Variable                      | Default                           | Description                          |
-| ----------------------------- | --------------------------------- | ------------------------------------ |
-| `PORT`                        | `3000`                            | Server port                          |
-| `NODE_ENV`                    | `development`                     | Runtime environment                  |
-| `LOG_LEVEL`                   | `debug`                           | Log level (debug, info, warn, error) |
-| `REDIS_URL`                   | -                                 | Redis for rate limiting              |
-| `REDIS_ENABLED`               | `false`                           | Enable Redis connection              |
-| `RATE_LIMIT_ENABLED`          | `true`                            | Enable rate limiting                 |
-| `RATE_LIMIT_MAX`              | `100`                             | Max requests per window              |
-| `RATE_LIMIT_WINDOW_MS`        | `60000`                           | Window in ms (1 min)                 |
-| `OTEL_ENABLED`                | `false`                           | Enable OpenTelemetry tracing         |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | -                                 | OTEL Collector endpoint              |
-| `OTEL_SERVICE_NAME`           | `api-gateway`                     | Service name for tracing             |
-| `METRICS_ENABLED`             | `true`                            | Enable Prometheus /metrics endpoint  |
-| `ORDERS_SERVICE_URL`          | -                                 | orders-service URL                   |
-| `SEARCH_SERVICE_URL`          | -                                 | search-service URL                   |
-| `WEBHOOKS_SERVICE_URL`        | -                                 | webhooks-service URL                 |
+| Variable                      | Default       | Description                          |
+| ----------------------------- | ------------- | ------------------------------------ |
+| `PORT`                        | `3000`        | Server port                          |
+| `NODE_ENV`                    | `development` | Runtime environment                  |
+| `LOG_LEVEL`                   | `debug`       | Log level (debug, info, warn, error) |
+| `REDIS_URL`                   | -             | Redis for rate limiting              |
+| `REDIS_ENABLED`               | `false`       | Enable Redis connection              |
+| `RATE_LIMIT_ENABLED`          | `true`        | Enable rate limiting                 |
+| `RATE_LIMIT_MAX`              | `100`         | Max requests per window              |
+| `RATE_LIMIT_WINDOW_MS`        | `60000`       | Window in ms (1 min)                 |
+| `OTEL_ENABLED`                | `false`       | Enable OpenTelemetry tracing         |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | -             | OTEL Collector endpoint              |
+| `OTEL_SERVICE_NAME`           | `api-gateway` | Service name for tracing             |
+| `METRICS_ENABLED`             | `true`        | Enable Prometheus /metrics endpoint  |
+| `ORDERS_SERVICE_URL`          | -             | orders-service URL                   |
+| `SEARCH_SERVICE_URL`          | -             | search-service URL                   |
+| `WEBHOOKS_SERVICE_URL`        | -             | webhooks-service URL                 |
 
 ---
 
