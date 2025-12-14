@@ -12,28 +12,28 @@ scrape_configs:
   - job_name: 'api-gateway'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['api-gateway:3001']
+      - targets: ['pulse-api-gateway:3000']
 
   - job_name: 'orders-service'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['orders-service:3002']
+      - targets: ['pulse-orders-service:3002']
 
   - job_name: 'outbox-relay'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['outbox-relay:8081']
+      - targets: ['pulse-outbox-relay:8081']
 
   - job_name: 'credit-engine'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['credit-engine:8082']
+      - targets: ['pulse-credit-engine:8082']
 
   - job_name: 'ledger-processor'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['ledger-processor:8083']
+      - targets: ['pulse-ledger-processor:8083']
 
   - job_name: 'otel-collector'
     static_configs:
-      - targets: ['otel-collector:8888']
+      - targets: ['pulse-otel-collector:8888']

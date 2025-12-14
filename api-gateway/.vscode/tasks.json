@@ -29,11 +29,11 @@
     {
       "label": "🔄 Kill Port 3000",
       "type": "shell",
-      "command": "echo '🔪 Killing existing processes...' && (pkill -9 -f 'tsx.*index.ts' 2>/dev/null || true) && (pkill -9 -f 'node.*index' 2>/dev/null || true) && (for pid in $(ss -tlnp 2>/dev/null | grep ':3000' | grep -oP 'pid=\\K[0-9]+'); do kill -9 $pid 2>/dev/null; done) && sleep 2 && echo '✅ Port 3000 is free'",
+      "command": "echo '🔪 Killing port 3000...' && (lsof -ti:3000 | xargs -r kill -9 2>/dev/null || true) && sleep 1 && echo '✅ Port 3000 is free'",
       "presentation": {
-        "reveal": "always",
+        "reveal": "silent",
         "panel": "shared",
-        "close": false
+        "close": true
       },
       "problemMatcher": []
     },

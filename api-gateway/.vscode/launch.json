@@ -28,7 +28,8 @@
         "OTEL_SERVICE_NAME": "api-gateway",
         "METRICS_ENABLED": "true"
       },
-      "preLaunchTask": "🔄 Kill Port 3000"
+      "preLaunchTask": "🔄 Kill Port 3000",
+      "postDebugTask": "🔄 Kill Port 3000"
     },
     {
       "name": "🟡 UAT",
@@ -60,7 +61,8 @@
         "OTEL_SERVICE_NAME": "api-gateway",
         "METRICS_ENABLED": "true"
       },
-      "preLaunchTask": "🔄 Kill Port 3000"
+      "preLaunchTask": "🔄 Kill Port 3000",
+      "postDebugTask": "🔄 Kill Port 3000"
     },
     {
       "name": "🔴 PROD",
@@ -75,7 +77,8 @@
       "restart": false,
       "autoAttachChildProcesses": false,
       "envFile": "${workspaceFolder}/.env",
-      "preLaunchTask": "🔄 Kill Port 3000"
+      "preLaunchTask": "🔄 Kill Port 3000",
+      "postDebugTask": "🔄 Kill Port 3000"
     }
   ]
 }

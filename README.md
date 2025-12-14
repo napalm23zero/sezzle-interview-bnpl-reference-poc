@@ -9,18 +9,29 @@ This repo is designed to be a **portfolio artifact**: a small-but-complete BNPL/
 
 ### ✅ Completed
 - **Infrastructure Layer** — Full devcontainer setup with all shared services
-  - PostgreSQL (Orders + Outbox)
+  - PostgreSQL (Orders + Outbox + Users)
   - MySQL (Ledger double-entry)
-  - Redis (Cache + Rate limiting)
+  - Redis (Cache + Rate limiting + Token cache)
   - Elasticsearch (Operational search)
   - LocalStack (AWS SQS/SNS emulation)
   - Full observability stack (Prometheus, Grafana, Jaeger, OTEL Collector)
 - **Health Check System** — Automated infrastructure validation script
-- **Docker Network** — Isolated `pulsepay-network` for service communication
-- **Database Schemas** — Initial schemas for orders, outbox, ledger, and idempotency tracking
+- **Docker Network** — Isolated `pulse-network` for service communication
+- **Database Schemas** — Initial schemas for orders, outbox, ledger, users, and idempotency tracking
+- **API Gateway** (Node.js/Fastify) — 95% complete
+  - Correlation ID middleware (SHA256 + salt)
+  - Rate limiting with Redis
+  - Structured JSON logging (Pino)
+  - OpenTelemetry distributed tracing
+  - Prometheus metrics endpoint (/metrics)
+  - Grafana dashboard (RPS, Latency, Errors, Rate Limits, Node.js Runtime)
+  - **JWT Authentication** (edge auth with RBAC)
+  - **User Management** (register, login, refresh, logout)
+  - **PostgreSQL user storage** (Argon2id password hashing)
+  - **Account security** (lockout after 5 failed attempts)
 
 ### 🔄 In Progress
-- API Gateway (Node.js/Fastify - dumb proxy)
+- API Gateway — Proxy routes to downstream services
 - Orders Service (NestJS)
 
 ### 📋 Planned

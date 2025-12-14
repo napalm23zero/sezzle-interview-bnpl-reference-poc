@@ -19,6 +19,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     vim \
     zsh \
     ca-certificates \
+    procps \
+    net-tools \
+    lsof \
+    psmisc \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Install oh-my-zsh for better DX

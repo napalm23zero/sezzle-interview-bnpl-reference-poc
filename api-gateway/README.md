@@ -5,6 +5,41 @@
 
 ---
 
+## 🚀 Quick Start
+
+```bash
+# 1. Run database migrations (first time only)
+PGPASSWORD=pulsepay_dev psql -h pulse-postgres -U pulsepay -d pulsepay_orders \
+  -f src/db/migrations/001_initial_schema.sql
+
+# 2. Start the server (F5 in VS Code or:)
+npm run dev
+
+# 3. Test endpoints
+curl http://localhost:3000/health
+curl http://localhost:3000/metrics
+
+# 4. Register a user
+curl -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"SecurePass123!","firstName":"Test","lastName":"User"}'
+
+# 5. Activate user (dev only)
+PGPASSWORD=pulsepay_dev psql -h pulse-postgres -U pulsepay -d pulsepay_orders \
+  -c "UPDATE users SET status='active', email_verified=true WHERE email='test@example.com';"
+
+# 6. Login and get tokens
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"SecurePass123!"}'
+
+# 7. Access protected route
+curl http://localhost:3000/auth/me \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
 ## 📋 Overview
 
 The API Gateway is a **lightweight reverse proxy** that acts as the single entry point for all external requests. It **does NOT contain business logic** — it only routes requests, validates credentials, and enriches requests with observability metadata.
@@ -60,29 +95,30 @@ We chose **plain Node.js/Fastify** instead of NestJS because:
 
 ## ✅ What It DOES
 
-| Responsibility      | Description                                                                                                           | Implementation                |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| **Correlation ID**  | Generates a secure, non-predictable ID per request using UUID + SHA256 salt, propagates via `X-Correlation-ID` header | Plugin                        |
-| **Rate Limiting**   | Limits requests per IP (100/min default), Redis-backed for distributed environments                                   | `@fastify/rate-limit` + Redis |
-| **Error Handling**  | Standardized error responses following RFC 7807 with enhanced fields for debugging                                    | Plugin + Error Classes        |
-| **Request Logging** | Structured JSON log for each request                                                                                  | Pino logger                   |
-| **OpenTelemetry**   | Starts spans and propagates trace context                                                                             | `@opentelemetry/sdk-node`     |
-| **Health Check**    | `/health` endpoint for load balancers                                                                                 | Route handler                 |
-| **Proxy Pass**      | Forwards requests to internal services                                                                                | `@fastify/http-proxy`         |
+| Responsibility         | Description                                                                                                           | Implementation                |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| **Correlation ID**     | Generates a secure, non-predictable ID per request using UUID + SHA256 salt, propagates via `X-Correlation-ID` header | Plugin                        |
+| **Rate Limiting**      | Limits requests per IP (100/min default), Redis-backed for distributed environments                                   | `@fastify/rate-limit` + Redis |
+| **JWT Authentication** | Edge authentication using JWT tokens with role-based access control and permission checks                             | Plugin + Auth Module          |
+| **Error Handling**     | Standardized error responses following RFC 7807 with enhanced fields for debugging                                    | Plugin + Error Classes        |
+| **Request Logging**    | Structured JSON log for each request                                                                                  | Pino logger                   |
+| **OpenTelemetry**      | Starts spans and propagates trace context                                                                             | `@opentelemetry/sdk-node`     |
+| **Health Check**       | `/health` endpoint for load balancers                                                                                 | Route handler                 |
+| **Proxy Pass**         | Forwards requests to internal services                                                                                | `@fastify/http-proxy`         |
 
 ---
 
 ## ❌ What It DOES NOT DO
 
 - ❌ **Controllers** — none. Route logic lives in downstream services.
-- ❌ **DTOs/Validation** — it does not validate request bodies. Services do that.
-- ❌ **Business logic** — zero. It only forwards requests.
-- ❌ **Database access** — it does not connect to PostgreSQL/MySQL.
-- ❌ **State** — stateless. Redis is only used for distributed rate limiting.
+- ❌ **DTOs/Validation** — it does not validate request bodies (except auth). Services do that.
+- ❌ **Business logic** — minimal. Only user auth, everything else forwards.
+- ✅ **User Database** — PostgreSQL for user accounts and tokens (auth module only).
+- ❌ **State** — mostly stateless. Redis for rate limiting and token caching.
 
 ---
 
-## � Correlation ID
+## 🔗 Correlation ID
 
 Every request receives a unique, secure correlation ID that follows the request through all downstream services.
 
@@ -124,6 +160,309 @@ The correlation ID is:
 2. Added to all log entries automatically
 3. Included in response headers
 4. Forwarded to downstream services (when proxy routes are implemented)
+
+---
+
+---
+
+## 🔐 JWT Authentication
+
+The API Gateway implements **edge authentication** using JWT (JSON Web Tokens). Authentication is performed at the gateway level, and validated user information is passed to downstream services via headers.
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                          Auth Module                              │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────┐  │
+│  │   Interfaces    │ │    Providers    │ │      Services       │  │
+│  │  - IAuthProvider│ │  - JWTProvider  │ │  - AuthService      │  │
+│  │  - TokenPayload │ │    (jose lib)   │ │  - TokenCacheService│  │
+│  │  - AuthResult   │ │                 │ │                     │  │
+│  └─────────────────┘ └─────────────────┘ └─────────────────────┘  │
+│                              ↓                                    │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │              Fastify Auth Plugin                            │  │
+│  │  - request.user (authenticated user payload)                │  │
+│  │  - request.authenticate() (manual authentication)          │  │
+│  │  - Route-level auth/roles/permissions config                │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### SOLID Design
+
+The auth module follows **SOLID principles** for easy future extraction to a microservice:
+
+| Principle                 | Implementation                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **S**ingle Responsibility | Each class has one job: JWTProvider signs/verifies, TokenCacheService caches, AuthService orchestrates |
+| **O**pen/Closed           | New providers (e.g., Paseto) can be added without modifying existing code                              |
+| **L**iskov Substitution   | Any IAuthProvider implementation can replace JWTProvider                                               |
+| **I**nterface Segregation | Small, focused interfaces (IAuthProvider, ICacheService)                                               |
+| **D**ependency Inversion  | AuthService depends on IAuthProvider interface, not JWTProvider directly                               |
+
+### Route Configuration
+
+```typescript
+// Public route (no auth)
+fastify.get('/health', handler);
+
+// Protected route (auth required)
+fastify.get(
+  '/api/me',
+  {
+    config: { auth: true },
+  },
+  async (request) => {
+    return { userId: request.user.sub };
+  },
+);
+
+// Admin only route
+fastify.delete(
+  '/api/users/:id',
+  {
+    config: { auth: true, roles: ['admin'] },
+  },
+  handler,
+);
+
+// Permission-based access
+fastify.post(
+  '/api/orders',
+  {
+    config: { auth: true, permissions: ['orders:write'] },
+  },
+  handler,
+);
+```
+
+### Token Structure
+
+**Access Token (short-lived, 15m default)**
+
+```json
+{
+  "sub": "user-123",
+  "role": "merchant",
+  "permissions": ["orders:read", "orders:write"],
+  "type": "access",
+  "iss": "pulse-api-gateway",
+  "aud": "pulse-services",
+  "iat": 1702531200,
+  "exp": 1702532100,
+  "jti": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}
+```
+
+**Refresh Token (long-lived, 7d default)**
+
+```json
+{
+  "sub": "user-123",
+  "type": "refresh",
+  "iss": "pulse-api-gateway",
+  "aud": "pulse-services",
+  "iat": 1702531200,
+  "exp": 1703136000,
+  "jti": "f6e5d4c3-b2a1-0987-6543-210fedcba098"
+}
+```
+
+### Token Caching (Redis)
+
+Validated tokens are cached in Redis to avoid repeated cryptographic verification:
+
+| Key Pattern                 | Description                    | TTL                |
+| --------------------------- | ------------------------------ | ------------------ |
+| `auth:tokens:{hash}`        | Cached validated token payload | Token expiry or 5m |
+| `auth:revoked:{jti}`        | Revoked token IDs              | 7 days             |
+| `auth:user:{userId}:tokens` | User's active token list       | 7 days             |
+
+### Environment Variables
+
+| Variable                   | Default                 | Description                                        |
+| -------------------------- | ----------------------- | -------------------------------------------------- |
+| `JWT_ENABLED`              | `true`                  | Enable/disable JWT authentication                  |
+| `JWT_SECRET`               | `development-secret...` | Secret for signing tokens (REQUIRED in production) |
+| `JWT_ISSUER`               | `pulse-api-gateway`     | Token issuer (iss claim)                           |
+| `JWT_AUDIENCE`             | `pulse-services`        | Token audience (aud claim)                         |
+| `JWT_ALGORITHM`            | `HS256`                 | Signing algorithm (HS256 or RS256)                 |
+| `JWT_ACCESS_TOKEN_EXPIRY`  | `15m`                   | Access token lifetime                              |
+| `JWT_REFRESH_TOKEN_EXPIRY` | `7d`                    | Refresh token lifetime                             |
+| `JWT_CLOCK_TOLERANCE`      | `60`                    | Clock tolerance in seconds                         |
+| `TOKEN_CACHE_ENABLED`      | `true`                  | Enable token caching                               |
+| `TOKEN_CACHE_KEY_PREFIX`   | `auth`                  | Redis key prefix                                   |
+
+---
+
+## 👤 Authentication Endpoints
+
+The API Gateway provides complete user authentication with secure password storage and token management.
+
+### Endpoints Overview
+
+| Method | Path               | Auth | Description                 |
+| ------ | ------------------ | ---- | --------------------------- |
+| `POST` | `/auth/register`   | No   | Create a new user account   |
+| `POST` | `/auth/login`      | No   | Authenticate and get tokens |
+| `POST` | `/auth/refresh`    | No   | Refresh access token        |
+| `POST` | `/auth/logout`     | No   | Revoke refresh token        |
+| `GET`  | `/auth/me`         | Yes  | Get current user info       |
+| `POST` | `/auth/logout-all` | Yes  | Revoke all user tokens      |
+
+### User Registration
+
+```bash
+curl -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123!",
+    "role": "consumer",
+    "firstName": "John",
+    "lastName": "Doe"
+  }'
+```
+
+**Response (201):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "user@example.com",
+      "role": "consumer",
+      "firstName": "John",
+      "lastName": "Doe",
+      "isActive": true,
+      "createdAt": "2024-01-15T10:30:00.000Z"
+    },
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+### Login
+
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123!"
+  }'
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "user@example.com",
+      "role": "consumer"
+    },
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": 900
+  }
+}
+```
+
+### Token Refresh
+
+```bash
+curl -X POST http://localhost:3000/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }'
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": 900
+  }
+}
+```
+
+### Get Current User
+
+```bash
+curl -X GET http://localhost:3000/auth/me \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "user@example.com",
+    "role": "consumer",
+    "firstName": "John",
+    "lastName": "Doe",
+    "isActive": true,
+    "lastLoginAt": "2024-01-15T12:00:00.000Z",
+    "createdAt": "2024-01-15T10:30:00.000Z"
+  }
+}
+```
+
+### Password Requirements
+
+| Requirement        | Minimum                            |
+| ------------------ | ---------------------------------- | --------- |
+| Length             | 8 characters                       |
+| Uppercase          | 1 character                        |
+| Lowercase          | 1 character                        |
+| Numbers            | 1 digit                            |
+| Special Characters | 1 character (`!@#$%^&\*()\_+-=[]{} | ;:,.<>?`) |
+
+### Security Features
+
+| Feature              | Implementation                                      |
+| -------------------- | --------------------------------------------------- |
+| **Password Hashing** | Argon2id (64MB memory, 3 iterations, 4 parallelism) |
+| **Account Lockout**  | 5 failed attempts = 15 minute lock                  |
+| **Token Rotation**   | New refresh token on each refresh                   |
+| **Token Revocation** | Stored in PostgreSQL + Redis cache                  |
+| **Secure Salt**      | Automatic salt with Argon2id                        |
+
+### Database Tables
+
+| Table                   | Description                            |
+| ----------------------- | -------------------------------------- |
+| `users`                 | User accounts with encrypted passwords |
+| `refresh_tokens`        | Active refresh tokens with expiry      |
+| `password_reset_tokens` | Password reset tokens (future use)     |
+
+### Environment Variables
+
+| Variable            | Default           | Description       |
+| ------------------- | ----------------- | ----------------- |
+| `POSTGRES_HOST`     | `pulse-postgres`  | PostgreSQL host   |
+| `POSTGRES_PORT`     | `5432`            | PostgreSQL port   |
+| `POSTGRES_DB`       | `pulsepay_orders` | Database name     |
+| `POSTGRES_USER`     | `pulsepay`        | Database user     |
+| `POSTGRES_PASSWORD` | `pulsepay_dev`    | Database password |
+| `POSTGRES_POOL_MIN` | `2`               | Minimum pool size |
+| `POSTGRES_POOL_MAX` | `10`              | Maximum pool size |
 
 ---
 
@@ -270,7 +609,7 @@ for i in {1..11}; do curl -s -w "HTTP %{http_code}\n" http://localhost:3000/heal
 
 ---
 
-## � Observability
+## 📊 Observability
 
 The gateway provides comprehensive observability through tracing, metrics, and structured logging.
 
@@ -363,20 +702,26 @@ Features:
 
 ---
 
-## �🔀 Routing
+## 🔀 Routing
 
-| Method | External Path        | Internal Target                           | Service            |
-| ------ | -------------------- | ----------------------------------------- | ------------------ |
-| `*`    | `/api/v1/orders/*`   | `http://orders-service:3001/orders/*`     | orders-service     |
-| `*`    | `/api/v1/search/*`   | `http://search-service:3002/search/*`     | search-service     |
-| `*`    | `/api/v1/webhooks/*` | `http://webhooks-service:3003/webhooks/*` | webhooks-service   |
-| `GET`  | `/health`            | local                                     | Health check       |
-| `GET`  | `/ready`             | local                                     | Readiness check    |
-| `GET`  | `/metrics`           | local                                     | Prometheus metrics |
+| Method | Path                 | Auth | Description                   |
+| ------ | -------------------- | ---- | ----------------------------- |
+| `GET`  | `/health`            | No   | Health check                  |
+| `GET`  | `/ready`             | No   | Readiness check               |
+| `GET`  | `/metrics`           | No   | Prometheus metrics            |
+| `POST` | `/auth/register`     | No   | Create user account           |
+| `POST` | `/auth/login`        | No   | Authenticate & get tokens     |
+| `POST` | `/auth/refresh`      | No   | Refresh access token          |
+| `POST` | `/auth/logout`       | No   | Revoke refresh token          |
+| `GET`  | `/auth/me`           | Yes  | Get current user info         |
+| `POST` | `/auth/logout-all`   | Yes  | Revoke all user tokens        |
+| `*`    | `/api/v1/orders/*`   | Yes  | → pulse-orders-service:3001   |
+| `*`    | `/api/v1/search/*`   | Yes  | → pulse-search-service:3002   |
+| `*`    | `/api/v1/webhooks/*` | Yes  | → pulse-webhooks-service:3003 |
 
 ---
 
-## 📁 Folder Structure (to be implemented)
+## 📁 Folder Structure
 
 ```
 api-gateway/
@@ -384,16 +729,28 @@ api-gateway/
 │   ├── devcontainer.json       # VS Code devcontainer config
 │   ├── docker-compose.yaml     # Container + network config
 │   └── docker/
-│       └── api-gateway.Dockerfile
+│       └── api-gateway.Dockerfile  # Includes process tools & psql
 │
 ├── src/
 │   ├── index.ts                # Entry point (~30 lines)
-│   ├── app.ts                  # Fastify app setup (~50 lines)
+│   ├── app.ts                  # Fastify app setup (~100 lines)
+│   │
+│   ├── auth/                   # Authentication module
+│   │   └── index.ts            # IAuthProvider, JWTProvider, AuthService
+│   │
+│   ├── config/
+│   │   └── index.ts            # Environment variables
+│   │
+│   ├── db/
+│   │   ├── index.ts            # PostgreSQL pool + helpers
+│   │   └── migrations/
+│   │       └── 001_initial_schema.sql  # Users + refresh_tokens tables
 │   │
 │   ├── errors/                 # Error handling
 │   │   └── index.ts            # Error codes, classes, builders
 │   │
 │   ├── plugins/                # Fastify plugins
+│   │   ├── auth.ts             # JWT auth plugin
 │   │   ├── correlation-id.ts   # X-Correlation-ID middleware
 │   │   ├── error-handler.ts    # Global error handler
 │   │   ├── metrics.ts          # Prometheus /metrics endpoint
@@ -401,12 +758,23 @@ api-gateway/
 │   │   ├── request-logger.ts   # Structured logging
 │   │   └── tracing.ts          # OpenTelemetry setup
 │   │
-│   ├── routes/
-│   │   ├── health.ts           # /health, /ready
-│   │   └── proxy.ts            # Proxy routes to services
+│   ├── redis/
+│   │   └── index.ts            # Redis client singleton
 │   │
-│   └── config/
-│       └── index.ts            # Environment variables
+│   ├── routes/
+│   │   ├── auth.ts             # /auth/* routes
+│   │   ├── health.ts           # /health, /ready
+│   │   └── proxy.ts            # Proxy routes to services (TBD)
+│   │
+│   └── users/                  # User management module
+│       ├── entities/
+│       │   ├── refresh-token.entity.ts
+│       │   └── user.entity.ts
+│       ├── repositories/
+│       │   ├── refresh-token.repository.ts
+│       │   └── user.repository.ts
+│       └── services/
+│           └── password.service.ts
 │
 ├── test/
 │   ├── health.test.ts

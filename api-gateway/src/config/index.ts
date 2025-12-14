@@ -50,10 +50,32 @@ export const config = {
     webhooks: process.env.WEBHOOKS_SERVICE_URL,
   },
 
-  // Redis (for distributed rate limiting)
+  // PostgreSQL (for user storage)
+  postgres: {
+    host: process.env.POSTGRES_HOST || 'pulse-postgres',
+    port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+    database: process.env.POSTGRES_DB || 'pulsepay_orders',
+    user: process.env.POSTGRES_USER || 'pulsepay',
+    password: process.env.POSTGRES_PASSWORD || 'pulsepay_dev',
+    // Connection pool settings
+    poolMin: parseInt(process.env.POSTGRES_POOL_MIN || '2', 10),
+    poolMax: parseInt(process.env.POSTGRES_POOL_MAX || '10', 10),
+    // SSL settings
+    ssl: parseBoolean(process.env.POSTGRES_SSL, false),
+  },
+
+  // Redis (for distributed rate limiting and token cache)
   redis: {
-    url: process.env.REDIS_URL,
-    enabled: parseBoolean(process.env.REDIS_ENABLED, false),
+    host: process.env.REDIS_HOST || 'pulse-redis',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    password: process.env.REDIS_PASSWORD || undefined,
+    db: parseInt(process.env.REDIS_DB || '0', 10),
+    // Constructed URL for compatibility
+    url: process.env.REDIS_URL || undefined,
+    enabled: parseBoolean(process.env.REDIS_ENABLED, true),
+    // Connection settings
+    maxRetriesPerRequest: parseInt(process.env.REDIS_MAX_RETRIES || '3', 10),
+    connectTimeout: parseInt(process.env.REDIS_CONNECT_TIMEOUT || '10000', 10),
   },
 
   // Rate limiting
@@ -102,6 +124,49 @@ export const config = {
   // Metrics (Prometheus)
   metrics: {
     enabled: parseBoolean(process.env.METRICS_ENABLED, true),
+  },
+
+  // JWT Authentication
+  jwt: {
+    // Enable/disable JWT authentication
+    enabled: parseBoolean(process.env.JWT_ENABLED, true),
+
+    // Secret key for HS256 (required in production)
+    // Generate with: openssl rand -base64 64
+    secret: process.env.JWT_SECRET || 'development-secret-change-in-production',
+
+    // Token issuer (iss claim)
+    issuer: process.env.JWT_ISSUER || 'pulse-api-gateway',
+
+    // Token audience (aud claim)
+    audience: process.env.JWT_AUDIENCE || 'pulse-services',
+
+    // Access token expiration (e.g., '15m', '1h', '7d')
+    accessTokenExpiry: process.env.JWT_ACCESS_TOKEN_EXPIRY || '15m',
+
+    // Refresh token expiration
+    refreshTokenExpiry: process.env.JWT_REFRESH_TOKEN_EXPIRY || '7d',
+
+    // Algorithm for signing (HS256 or RS256)
+    algorithm: (process.env.JWT_ALGORITHM as 'HS256' | 'RS256') || 'HS256',
+
+    // Clock tolerance for verification (seconds)
+    clockTolerance: parseInt(process.env.JWT_CLOCK_TOLERANCE || '60', 10),
+  },
+
+  // Token Cache
+  tokenCache: {
+    // Enable token caching (requires Redis)
+    enabled: parseBoolean(process.env.TOKEN_CACHE_ENABLED, true),
+
+    // Cache key prefix
+    keyPrefix: process.env.TOKEN_CACHE_KEY_PREFIX || 'auth',
+
+    // Default TTL for cached tokens (seconds)
+    defaultTtl: parseInt(process.env.TOKEN_CACHE_DEFAULT_TTL || '300', 10),
+
+    // TTL for revoked token entries (seconds)
+    revokedTokenTtl: parseInt(process.env.TOKEN_CACHE_REVOKED_TTL || '604800', 10),
   },
 } as const;
 
