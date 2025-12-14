@@ -11,10 +11,18 @@
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "killBehavior": "forceful",
+      "restart": false,
+      "autoAttachChildProcesses": false,
       "env": {
         "NODE_ENV": "development",
         "PORT": "3000",
-        "LOG_LEVEL": "debug"
+        "LOG_LEVEL": "debug",
+        "REDIS_URL": "redis://pulse-redis:6379",
+        "REDIS_ENABLED": "true",
+        "RATE_LIMIT_ENABLED": "true",
+        "RATE_LIMIT_USE_REDIS": "true",
+        "RATE_LIMIT_MAX": "10",
+        "RATE_LIMIT_WINDOW_MS": "60000"
       },
       "preLaunchTask": "🔄 Kill Port 3000"
     },
@@ -28,10 +36,21 @@
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "killBehavior": "forceful",
+      "restart": false,
+      "autoAttachChildProcesses": false,
       "env": {
         "NODE_ENV": "uat",
         "PORT": "3000",
-        "LOG_LEVEL": "info"
+        "LOG_LEVEL": "info",
+        "REDIS_URL": "redis://pulse-redis:6379",
+        "REDIS_ENABLED": "true",
+        "RATE_LIMIT_ENABLED": "true",
+        "RATE_LIMIT_USE_REDIS": "true",
+        "RATE_LIMIT_MAX": "50",
+        "RATE_LIMIT_WINDOW_MS": "60000",
+        "RATE_LIMIT_BAN_ENABLED": "true",
+        "RATE_LIMIT_BAN_THRESHOLD": "5",
+        "RATE_LIMIT_BAN_DURATION_MS": "300000"
       },
       "preLaunchTask": "🔄 Kill Port 3000"
     },
@@ -45,26 +64,10 @@
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "killBehavior": "forceful",
+      "restart": false,
+      "autoAttachChildProcesses": false,
       "envFile": "${workspaceFolder}/.env",
       "preLaunchTask": "🔄 Kill Port 3000"
-    },
-    {
-      "name": "🐞 Debug (No Watch)",
-      "type": "node",
-      "request": "launch",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
-      "args": ["${workspaceFolder}/src/index.ts"],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
-      "killBehavior": "forceful",
-      "env": {
-        "NODE_ENV": "development",
-        "PORT": "3000",
-        "LOG_LEVEL": "debug"
-      },
-      "preLaunchTask": "🔄 Kill Port 3000",
-      "skipFiles": ["<node_internals>/**"]
     }
   ]
 }

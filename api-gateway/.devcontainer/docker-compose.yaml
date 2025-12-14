@@ -1,52 +1,57 @@
 # ┌───────────────────────────────────────────┐
-# │  PulsePay API Gateway                     │
+# │  Pulse - API Gateway                      │
 # │  Lightweight proxy + middleware layer     │
 # │                                           │
 # │  for development use ONLY                 │
 # └───────────────────────────────────────────┘
 
 services:
-
   api-gateway:
     build:
       context: ./docker
       dockerfile: api-gateway.Dockerfile
-    container_name: pulsepay-api-gateway
+      tags:
+        - pulse/api-gateway:dev
+    image: pulse/api-gateway:dev
+    container_name: pulse-api-gateway
     volumes:
       - ..:/workspace:cached
       - node_modules:/workspace/node_modules
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       # Service URLs (internal Docker network)
-      - ORDERS_SERVICE_URL=http://orders-service:3001
-      - SEARCH_SERVICE_URL=http://search-service:3002
-      - WEBHOOKS_SERVICE_URL=http://webhooks-service:3003
-      
-      # Infrastructure (from pulsepay-network)
-      - REDIS_URL=redis://redis:6379
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - ORDERS_SERVICE_URL=http://pulse-orders-service:3001
+      - SEARCH_SERVICE_URL=http://pulse-search-service:3002
+      - WEBHOOKS_SERVICE_URL=http://pulse-webhooks-service:3003
+
+      # Infrastructure (from pulse-network)
+      - REDIS_URL=redis://pulse-redis:6379
+      - REDIS_ENABLED=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://pulse-otel-collector:4318
       - OTEL_SERVICE_NAME=api-gateway
-      
+
       # App config
       - NODE_ENV=development
       - PORT=3000
       - LOG_LEVEL=debug
-      
+
       # Rate limiting
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_USE_REDIS=true
       - RATE_LIMIT_MAX=100
       - RATE_LIMIT_WINDOW_MS=60000
     networks:
-      - pulsepay-network
+      - pulse-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 10s
 
 networks:
-  pulsepay-network:
+  pulse-network:
     external: true
 
 volumes:

@@ -15,44 +15,44 @@ LABEL description="DevContainer shell for infrastructure management"
 # Avoid prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install essential tools
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Basic utilities
-    ca-certificates \
-    curl \
-    wget \
-    git \
-    vim \
-    less \
-    jq \
-    unzip \
-    # Shell
-    zsh \
-    # Database clients
-    postgresql-client \
-    mysql-client \
-    redis-tools \
-    # Network tools
-    dnsutils \
-    iputils-ping \
-    netcat \
-    telnet \
-    # Process management
-    htop \
-    # Python for awslocal
-    python3 \
-    python3-pip \
-    # Docker CLI dependencies
-    gnupg \
-    lsb-release \
-    && rm -rf /var/lib/apt/lists/*
+# Install essential tools with retry logic for DNS resilience
+# Note: DNS is configured by Docker, /etc/resolv.conf is read-only during build
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    for i in 1 2 3 4 5; do \
+        apt-get update && apt-get install -y --no-install-recommends \
+            ca-certificates \
+            curl \
+            wget \
+            git \
+            vim \
+            less \
+            jq \
+            unzip \
+            zsh \
+            postgresql-client \
+            mysql-client \
+            redis-tools \
+            dnsutils \
+            iputils-ping \
+            netcat \
+            telnet \
+            htop \
+            python3 \
+            python3-pip \
+            gnupg \
+            lsb-release \
+        && break || { echo "Retry $i failed, waiting 5s..."; sleep 5; }; \
+    done && rm -rf /var/lib/apt/lists/*
 
 # Install Docker CLI (to communicate with host's Docker daemon)
-RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin \
-    && rm -rf /var/lib/apt/lists/*
+RUN for i in 1 2 3 4 5; do \
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+        && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
+        && apt-get update \
+        && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin \
+        && break || { echo "Retry $i failed, waiting 5s..."; sleep 5; rm -f /usr/share/keyrings/docker-archive-keyring.gpg; }; \
+    done && rm -rf /var/lib/apt/lists/*
 
 # Create docker group and set socket permissions on startup
 # The GID will be matched to host's docker group at runtime

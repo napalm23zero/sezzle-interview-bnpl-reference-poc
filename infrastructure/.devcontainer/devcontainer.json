@@ -1,5 +1,5 @@
 {
-  "name": "PulsePay - Infrastructure",
+  "name": "Pulse - Infrastructure",
   "dockerComposeFile": "docker-compose.yaml",
   "service": "devcontainer",
   "workspaceFolder": "/workspace",

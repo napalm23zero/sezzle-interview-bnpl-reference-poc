@@ -8,6 +8,8 @@ import Fastify, { FastifyInstance } from 'fastify';
 import { config } from './config/index.js';
 import { healthRoutes } from './routes/health.js';
 import { correlationIdPlugin } from './plugins/correlation-id.js';
+import { errorHandlerPlugin } from './plugins/error-handler.js';
+import { rateLimitPlugin } from './plugins/rate-limit.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -29,8 +31,15 @@ export async function buildApp(): Promise<FastifyInstance> {
     genReqId: () => crypto.randomUUID(),
   });
 
-  // Register plugins
+  // Register plugins (order matters!)
+  // 1. Correlation ID - must be first for logging context
   await app.register(correlationIdPlugin);
+
+  // 2. Error Handler - consistent error responses
+  await app.register(errorHandlerPlugin);
+
+  // 3. Rate Limiting - protect against abuse
+  await app.register(rateLimitPlugin);
 
   // Register routes
   await app.register(healthRoutes);

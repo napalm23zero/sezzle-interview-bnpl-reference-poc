@@ -57,19 +57,19 @@ print_header
 print_section "Databases"
 
 check_service "PostgreSQL" \
-    "docker exec pulsepay-postgres psql -U pulsepay -d postgres -c 'SELECT 1' 2>/dev/null" \
+    "docker exec pulse-postgres psql -U pulsepay -d postgres -c 'SELECT 1' 2>/dev/null" \
     "🐘"
 
 check_service "MySQL" \
-    "docker exec pulsepay-mysql mysql -u pulsepay -ppulsepay_dev -D pulsepay_ledger -e 'SELECT 1' 2>/dev/null" \
+    "docker exec pulse-mysql mysql -u pulsepay -ppulsepay_dev -D pulsepay_ledger -e 'SELECT 1' 2>/dev/null" \
     "🐬"
 
 check_service "Redis" \
-    "docker exec pulsepay-redis redis-cli PING 2>/dev/null | grep -q PONG" \
+    "docker exec pulse-redis redis-cli PING 2>/dev/null | grep -q PONG" \
     "🔴"
 
 check_service "Elasticsearch" \
-    "docker exec pulsepay-elasticsearch curl -s http://localhost:9200/_cluster/health 2>/dev/null | grep -qE '(green|yellow)'" \
+    "docker exec pulse-elasticsearch curl -s http://localhost:9200/_cluster/health 2>/dev/null | grep -qE '(green|yellow)'" \
     "🔍"
 
 # ============================================
@@ -78,15 +78,15 @@ check_service "Elasticsearch" \
 print_section "AWS Local (LocalStack)"
 
 check_service "LocalStack" \
-    "docker exec pulsepay-localstack curl -s http://localhost:4566/_localstack/health 2>/dev/null | grep -q running" \
+    "docker exec pulse-localstack curl -s http://localhost:4566/_localstack/health 2>/dev/null | grep -q running" \
     "☁️ "
 
 check_service "SQS Queues" \
-    "docker exec pulsepay-localstack awslocal sqs list-queues 2>/dev/null | grep -q QueueUrls" \
+    "docker exec pulse-localstack awslocal sqs list-queues 2>/dev/null | grep -q QueueUrls" \
     "📨"
 
 check_service "SNS Topics" \
-    "docker exec pulsepay-localstack awslocal sns list-topics 2>/dev/null" \
+    "docker exec pulse-localstack awslocal sns list-topics 2>/dev/null" \
     "📢"
 
 # ============================================
@@ -95,19 +95,19 @@ check_service "SNS Topics" \
 print_section "Observability Stack"
 
 check_service "Prometheus" \
-    "docker exec pulsepay-prometheus wget -q --spider http://localhost:9090/-/ready 2>/dev/null || docker exec pulsepay-prometheus curl -s http://localhost:9090/-/ready 2>/dev/null" \
+    "docker exec pulse-prometheus wget -q --spider http://localhost:9090/-/ready 2>/dev/null || docker exec pulse-prometheus curl -s http://localhost:9090/-/ready 2>/dev/null" \
     "📊"
 
 check_service "Grafana" \
-    "docker exec pulsepay-grafana curl -s http://localhost:3000/api/health 2>/dev/null | grep -q ok || docker exec pulsepay-grafana wget -q -O- http://localhost:3000/api/health 2>/dev/null | grep -q ok" \
+    "docker exec pulse-grafana curl -s http://localhost:3000/api/health 2>/dev/null | grep -q ok || docker exec pulse-grafana wget -q -O- http://localhost:3000/api/health 2>/dev/null | grep -q ok" \
     "📈"
 
 check_service "Jaeger" \
-    "docker exec pulsepay-jaeger wget -q --spider http://localhost:16686/ 2>/dev/null || curl -s http://localhost:16686/ 2>/dev/null" \
+    "docker exec pulse-jaeger wget -q --spider http://localhost:16686/ 2>/dev/null || curl -s http://localhost:16686/ 2>/dev/null" \
     "🔭"
 
 check_service "OTEL Collector" \
-    "docker exec pulsepay-otel-collector wget -q -O- http://localhost:13133/ 2>/dev/null || curl -s http://localhost:18888/metrics 2>/dev/null | head -1" \
+    "docker exec pulse-otel-collector wget -q -O- http://localhost:13133/ 2>/dev/null || curl -s http://localhost:18888/metrics 2>/dev/null | head -1" \
     "📡"
 
 # ============================================

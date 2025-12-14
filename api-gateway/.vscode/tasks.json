@@ -29,17 +29,24 @@
     {
       "label": "🔄 Kill Port 3000",
       "type": "shell",
-      "command": "lsof -ti:3000 | xargs kill -9 2>/dev/null || echo '✅ Port 3000 is free'",
+      "command": "echo '🔪 Killing existing processes...' && (pkill -9 -f 'tsx.*index.ts' 2>/dev/null || true) && (pkill -9 -f 'node.*index' 2>/dev/null || true) && (for pid in $(ss -tlnp 2>/dev/null | grep ':3000' | grep -oP 'pid=\\K[0-9]+'); do kill -9 $pid 2>/dev/null; done) && sleep 2 && echo '✅ Port 3000 is free'",
       "presentation": {
-        "reveal": "silent",
-        "close": true
+        "reveal": "always",
+        "panel": "shared",
+        "close": false
       },
       "problemMatcher": []
     },
     {
       "label": "🟢 Dev (Watch Mode)",
       "type": "shell",
-      "command": "NODE_ENV=development PORT=3000 LOG_LEVEL=debug npx tsx watch src/index.ts",
+      "command": "npx dotenv -e .env -- npx tsx watch src/index.ts",
+      "options": {
+        "env": {
+          "NODE_ENV": "development",
+          "LOG_LEVEL": "debug"
+        }
+      },
       "isBackground": true,
       "dependsOn": ["🔄 Kill Port 3000"],
       "problemMatcher": {
@@ -61,7 +68,13 @@
     {
       "label": "🟡 UAT (Watch Mode)",
       "type": "shell",
-      "command": "NODE_ENV=uat PORT=3000 LOG_LEVEL=info npx tsx watch src/index.ts",
+      "command": "npx dotenv -e .env -- npx tsx watch src/index.ts",
+      "options": {
+        "env": {
+          "NODE_ENV": "uat",
+          "LOG_LEVEL": "info"
+        }
+      },
       "isBackground": true,
       "dependsOn": ["🔄 Kill Port 3000"],
       "problemMatcher": {
@@ -83,7 +96,13 @@
     {
       "label": "🔴 PROD (Single Run)",
       "type": "shell",
-      "command": "NODE_ENV=production PORT=3000 LOG_LEVEL=warn npx tsx src/index.ts",
+      "command": "npx dotenv -e .env -- npx tsx src/index.ts",
+      "options": {
+        "env": {
+          "NODE_ENV": "production",
+          "LOG_LEVEL": "warn"
+        }
+      },
       "isBackground": true,
       "dependsOn": ["🔄 Kill Port 3000"],
       "problemMatcher": {

@@ -1,5 +1,5 @@
 {
-  "name": "PulsePay - API Gateway",
+  "name": "Pulse - API Gateway",
   "dockerComposeFile": "docker-compose.yaml",
   "service": "api-gateway",
   "workspaceFolder": "/workspace",

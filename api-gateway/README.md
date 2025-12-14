@@ -60,14 +60,15 @@ We chose **plain Node.js/Fastify** instead of NestJS because:
 
 ## ✅ What It DOES
 
-| Responsibility      | Description                                                                                                           | Implementation                |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| **Correlation ID**  | Generates a secure, non-predictable ID per request using UUID + SHA256 salt, propagates via `X-Correlation-ID` header | Plugin                        |
-| **Rate Limiting**   | Limits requests per IP (100/min default)                                                                              | `@fastify/rate-limit` + Redis |
-| **Request Logging** | Structured JSON log for each request                                                                                  | Pino logger                   |
-| **OpenTelemetry**   | Starts spans and propagates trace context                                                                             | `@opentelemetry/sdk-node`     |
-| **Health Check**    | `/health` endpoint for load balancers                                                                                 | Route handler                 |
-| **Proxy Pass**      | Forwards requests to internal services                                                                                | `@fastify/http-proxy`         |
+| Responsibility       | Description                                                                                                           | Implementation                |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| **Correlation ID**   | Generates a secure, non-predictable ID per request using UUID + SHA256 salt, propagates via `X-Correlation-ID` header | Plugin                        |
+| **Rate Limiting**    | Limits requests per IP (100/min default), Redis-backed for distributed environments                                   | `@fastify/rate-limit` + Redis |
+| **Error Handling**   | Standardized error responses following RFC 7807 with enhanced fields for debugging                                    | Plugin + Error Classes        |
+| **Request Logging**  | Structured JSON log for each request                                                                                  | Pino logger                   |
+| **OpenTelemetry**    | Starts spans and propagates trace context                                                                             | `@opentelemetry/sdk-node`     |
+| **Health Check**     | `/health` endpoint for load balancers                                                                                 | Route handler                 |
+| **Proxy Pass**       | Forwards requests to internal services                                                                                | `@fastify/http-proxy`         |
 
 ---
 
@@ -126,7 +127,146 @@ The correlation ID is:
 
 ---
 
-## �🔀 Routing
+## 🚨 Error Response Pattern
+
+All errors follow a **standardized response format** inspired by RFC 7807 (Problem Details for HTTP APIs), enhanced for better developer experience.
+
+### Response Structure
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Too many requests. Please slow down and try again.",
+    "details": "You have exceeded the limit of 10 requests per 60 seconds.",
+    "timestamp": "2025-12-14T04:25:02.380Z",
+    "path": "/api/v1/orders",
+    "method": "POST",
+    "correlationId": "35d23671-2b1a1b95-75bb-4db2-877c-14a81a67fb04-6c83bc28",
+    "retryAfter": 42,
+    "docs": "https://docs.pulsepay.io/errors/rate-limit-exceeded"
+  }
+}
+```
+
+### Error Fields
+
+| Field           | Type     | Description                                      |
+| --------------- | -------- | ------------------------------------------------ |
+| `success`       | boolean  | Always `false` for errors                        |
+| `code`          | string   | Machine-readable error code (e.g., `BAD_REQUEST`) |
+| `message`       | string   | Human-readable message (safe for end users)      |
+| `details`       | string?  | Technical details (development only)             |
+| `timestamp`     | string   | ISO 8601 timestamp                               |
+| `path`          | string   | Request path                                     |
+| `method`        | string   | HTTP method                                      |
+| `correlationId` | string   | Unique request ID for tracing                    |
+| `retryAfter`    | number?  | Seconds to wait (for rate limit errors)          |
+| `docs`          | string   | Link to error documentation                      |
+
+### Error Codes
+
+| Code                   | HTTP Status | Description                          |
+| ---------------------- | ----------- | ------------------------------------ |
+| `BAD_REQUEST`          | 400         | Invalid request syntax               |
+| `VALIDATION_FAILED`    | 400         | Request validation failed            |
+| `UNAUTHORIZED`         | 401         | Authentication required              |
+| `FORBIDDEN`            | 403         | Insufficient permissions             |
+| `RESOURCE_NOT_FOUND`   | 404         | Resource or route not found          |
+| `METHOD_NOT_ALLOWED`   | 405         | HTTP method not supported            |
+| `CONFLICT`             | 409         | Resource conflict                    |
+| `RATE_LIMIT_EXCEEDED`  | 429         | Too many requests                    |
+| `INTERNAL_ERROR`       | 500         | Unexpected server error              |
+| `SERVICE_UNAVAILABLE`  | 503         | Service temporarily unavailable      |
+| `GATEWAY_TIMEOUT`      | 504         | Upstream service timeout             |
+
+### Usage in Code
+
+```typescript
+import { ApiException, ErrorCodes } from './errors/index.js';
+
+// Throwing errors
+throw new ApiException(ErrorCodes.BAD_REQUEST, 'Invalid order ID format');
+
+// With retry-after (rate limiting)
+throw new ApiException(ErrorCodes.RATE_LIMIT_EXCEEDED, 'Too many requests', 60);
+```
+
+### Example Responses
+
+**Rate Limit Exceeded (429):**
+```bash
+curl -s http://localhost:3000/health  # After 10+ requests in 60s
+```
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Too many requests. Please slow down and try again.",
+    "retryAfter": 42,
+    "docs": "https://docs.pulsepay.io/errors/rate-limit-exceeded"
+  }
+}
+```
+
+**Not Found (404):**
+```bash
+curl -s http://localhost:3000/nonexistent
+```
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "The requested resource was not found.",
+    "details": "Route GET /nonexistent not found",
+    "docs": "https://docs.pulsepay.io/errors/resource-not-found"
+  }
+}
+```
+
+---
+
+## 🔒 Rate Limiting
+
+The gateway protects against abuse with distributed rate limiting using Redis.
+
+### Configuration
+
+| Variable               | Default | Description                    |
+| ---------------------- | ------- | ------------------------------ |
+| `RATE_LIMIT_ENABLED`   | `false` | Enable/disable rate limiting   |
+| `RATE_LIMIT_USE_REDIS` | `false` | Use Redis for distributed rate limiting |
+| `RATE_LIMIT_MAX`       | `100`   | Max requests per window        |
+| `RATE_LIMIT_WINDOW_MS` | `60000` | Window duration in ms (1 min)  |
+| `REDIS_ENABLED`        | `false` | Enable Redis connection        |
+| `REDIS_URL`            | -       | Redis connection URL           |
+
+### Response Headers
+
+When rate limiting is enabled, responses include:
+
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1734150000
+Retry-After: 42  (only on 429 responses)
+```
+
+### Testing Rate Limits
+
+```bash
+# Send 11 requests rapidly (with limit of 10)
+for i in {1..11}; do curl -s -w "HTTP %{http_code}\n" http://localhost:3000/health; done
+
+# Expected: First 10 return 200, 11th returns 429 with error response
+```
+
+---
+
+## 🔀 Routing
 
 | Method | External Path        | Internal Target                           | Service            |
 | ------ | -------------------- | ----------------------------------------- | ------------------ |
@@ -153,8 +293,12 @@ api-gateway/
 │   ├── index.ts                # Entry point (~30 lines)
 │   ├── app.ts                  # Fastify app setup (~50 lines)
 │   │
+│   ├── errors/                 # Error handling
+│   │   └── index.ts            # Error codes, classes, builders
+│   │
 │   ├── plugins/                # Fastify plugins
 │   │   ├── correlation-id.ts   # X-Correlation-ID middleware
+│   │   ├── error-handler.ts    # Global error handler
 │   │   ├── rate-limit.ts       # Rate limiting config
 │   │   ├── request-logger.ts   # Structured logging
 │   │   └── tracing.ts          # OpenTelemetry setup
