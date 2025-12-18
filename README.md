@@ -9,18 +9,29 @@ This repo is designed to be a **portfolio artifact**: a small-but-complete BNPL/
 
 ### ✅ Completed
 - **Infrastructure Layer** — Full devcontainer setup with all shared services
-  - PostgreSQL (Orders + Outbox)
+  - PostgreSQL (Orders + Outbox + Users)
   - MySQL (Ledger double-entry)
-  - Redis (Cache + Rate limiting)
+  - Redis (Cache + Rate limiting + Token cache)
   - Elasticsearch (Operational search)
   - LocalStack (AWS SQS/SNS emulation)
   - Full observability stack (Prometheus, Grafana, Jaeger, OTEL Collector)
 - **Health Check System** — Automated infrastructure validation script
-- **Docker Network** — Isolated `pulsepay-network` for service communication
-- **Database Schemas** — Initial schemas for orders, outbox, ledger, and idempotency tracking
+- **Docker Network** — Isolated `pulse-network` for service communication
+- **Database Schemas** — Initial schemas for orders, outbox, ledger, users, and idempotency tracking
+- **API Gateway** (Node.js/Fastify) — 95% complete
+  - Correlation ID middleware (SHA256 + salt)
+  - Rate limiting with Redis
+  - Structured JSON logging (Pino)
+  - OpenTelemetry distributed tracing
+  - Prometheus metrics endpoint (/metrics)
+  - Grafana dashboard (RPS, Latency, Errors, Rate Limits, Node.js Runtime)
+  - **JWT Authentication** (edge auth with RBAC)
+  - **User Management** (register, login, refresh, logout)
+  - **PostgreSQL user storage** (Argon2id password hashing)
+  - **Account security** (lockout after 5 failed attempts)
 
 ### 🔄 In Progress
-- API Gateway (NestJS)
+- API Gateway — Proxy routes to downstream services
 - Orders Service (NestJS)
 
 ### 📋 Planned
@@ -123,19 +134,19 @@ This project intentionally focuses on a **small domain surface** but a **rich en
 
 | Layer | Technology | Why |
 |-------|------------|-----|
-| **REST APIs & Integrations** | **NestJS + TypeScript** | Produtividade, decorators, validação automática, OpenAPI nativo, excelente DX |
-| **High-Performance Workers** | **Go** | Alto throughput, baixa latência, eficiência de memória para event processing |
+| **REST APIs & Integrations** | **NestJS + TypeScript** | Productivity, decorators, automatic validation, native OpenAPI, excellent DX |
+| **High-Performance Workers** | **Go** | High throughput, low latency, memory efficiency for event processing |
 
-**Go brilha em:** workers processando milhares de eventos/segundo, operações financeiras críticas (ledger), polling contínuo de outbox.
+**Go shines in:** workers processing thousands of events/second, critical financial operations (ledger), continuous outbox polling.
 
-**NestJS brilha em:** REST APIs com validação rica, integração com merchants, CRUD de orders, qualquer "feijão com arroz" de backend.
+**NestJS shines in:** REST APIs with rich validation, merchant integrations, order CRUD, general backend work.
 
 ---
 
 ### Services (NestJS + TypeScript)
 1. **api-gateway**  
    - REST entrypoint, request validation, correlation IDs, rate limiting
-   - Built with NestJS decorators, class-validator, Swagger auto-generation
+   - Built with Fastify (lightweight proxy, not NestJS)
 2. **orders-service**  
    - Creates BNPL purchase requests (orders)  
    - Stores data in **Postgres** (TypeORM/Prisma)  
@@ -286,7 +297,7 @@ in the **same DB transaction**.
 ├── infrastructure/              # Shared infra (PostgreSQL, MySQL, Redis, etc.)
 │   └── .devcontainer/           # Opens as separate VS Code window
 │
-├── api-gateway/                 # REST entrypoint (NestJS)
+├── api-gateway/                 # REST entrypoint (Node.js/Fastify)
 │   └── .devcontainer/
 ├── orders-service/              # Orders + Outbox (NestJS)
 │   └── .devcontainer/

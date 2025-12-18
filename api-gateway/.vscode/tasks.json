@@ -1,0 +1,125 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build",
+      "type": "npm",
+      "script": "build",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Lint",
+      "type": "npm",
+      "script": "lint",
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "Test",
+      "type": "npm",
+      "script": "test",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "🔄 Kill Port 3000",
+      "type": "shell",
+      "command": "echo '🔪 Killing port 3000...' && (lsof -ti:3000 | xargs -r kill -9 2>/dev/null || true) && sleep 1 && echo '✅ Port 3000 is free'",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "close": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "🟢 Dev (Watch Mode)",
+      "type": "shell",
+      "command": "npx dotenv -e .env -- npx tsx watch src/index.ts",
+      "options": {
+        "env": {
+          "NODE_ENV": "development",
+          "LOG_LEVEL": "debug"
+        }
+      },
+      "isBackground": true,
+      "dependsOn": ["🔄 Kill Port 3000"],
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "API Gateway running"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "dev"
+      }
+    },
+    {
+      "label": "🟡 UAT (Watch Mode)",
+      "type": "shell",
+      "command": "npx dotenv -e .env -- npx tsx watch src/index.ts",
+      "options": {
+        "env": {
+          "NODE_ENV": "uat",
+          "LOG_LEVEL": "info"
+        }
+      },
+      "isBackground": true,
+      "dependsOn": ["🔄 Kill Port 3000"],
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "API Gateway running"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "dev"
+      }
+    },
+    {
+      "label": "🔴 PROD (Single Run)",
+      "type": "shell",
+      "command": "npx dotenv -e .env -- npx tsx src/index.ts",
+      "options": {
+        "env": {
+          "NODE_ENV": "production",
+          "LOG_LEVEL": "warn"
+        }
+      },
+      "isBackground": true,
+      "dependsOn": ["🔄 Kill Port 3000"],
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "API Gateway running"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "dev"
+      }
+    }
+  ]
+}

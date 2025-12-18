@@ -71,19 +71,25 @@ Use these from other services (inside Docker network):
 
 ```bash
 # PostgreSQL (from host: localhost:15432)
-postgresql://pulsepay:pulsepay_dev@postgres:5432/pulsepay_orders
+postgresql://pulsepay:pulsepay_dev@pulse-postgres:5432/pulsepay_orders
 
 # MySQL (from host: localhost:13306)
-mysql://pulsepay:pulsepay_dev@mysql:3306/pulsepay_ledger
+mysql://pulsepay:pulsepay_dev@pulse-mysql:3306/pulsepay_ledger
 
 # Redis (from host: localhost:16379)
-redis://redis:6379
+redis://pulse-redis:6379
 
 # Elasticsearch (from host: localhost:19200)
-http://elasticsearch:9200
+http://pulse-elasticsearch:9200
 
 # LocalStack SQS (from host: localhost:14566)
-http://localstack:4566
+http://pulse-localstack:4566
+
+# Prometheus (from host: localhost:19090)
+http://pulse-prometheus:9090
+
+# OTEL Collector (from host: localhost:14318)
+http://pulse-otel-collector:4318
 ```
 
 ## Credentials
@@ -140,13 +146,21 @@ Pre-created queues (LocalStack):
 - Login: `admin` / `admin`
 - Pre-configured Prometheus and Jaeger datasources
 
+**Available Dashboards:**
+
+| Dashboard | Folder | Description |
+|-----------|--------|-------------|
+| API Gateway | Pulse | RPS, Latency (P50/P95/P99), Error Rate, Rate Limit Hits, Node.js Runtime |
+
+Dashboards are auto-provisioned from `config/grafana/provisioning/dashboards/`.
+
 ## Environment Variables
 
 All configuration is in `.devcontainer/.env`. Key variables:
 
 ```bash
 # Network
-NETWORK_NAME=pulsepay-network
+NETWORK_NAME=pulse-network
 
 # Port naming convention:
 # *_PORT_INTERNAL = port inside Docker network
@@ -162,9 +176,9 @@ POSTGRES_PORT_EXTERNAL=15432
 ### Service not healthy
 ```bash
 # Check container logs
-docker logs pulsepay-postgres
-docker logs pulsepay-mysql
-docker logs pulsepay-localstack
+docker logs pulse-postgres
+docker logs pulse-mysql
+docker logs pulse-localstack
 
 # Restart specific service
 docker compose restart postgres
