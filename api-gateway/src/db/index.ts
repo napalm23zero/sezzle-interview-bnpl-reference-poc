@@ -10,7 +10,6 @@
 
 import pg from 'pg';
 import type { FastifyBaseLogger } from 'fastify';
-import { config } from '../config/index.js';
 
 const { Pool } = pg;
 
@@ -36,10 +35,7 @@ let pool: pg.Pool | null = null;
 /**
  * Create database connection pool
  */
-export function createPool(
-  dbConfig: DatabaseConfig,
-  logger: FastifyBaseLogger
-): pg.Pool {
+export function createPool(dbConfig: DatabaseConfig, logger: FastifyBaseLogger): pg.Pool {
   if (pool) {
     return pool;
   }
@@ -131,9 +127,7 @@ export async function checkDatabaseHealth(): Promise<{
  * });
  * ```
  */
-export async function withTransaction<T>(
-  fn: (client: pg.PoolClient) => Promise<T>
-): Promise<T> {
+export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
   const client = await getPool().connect();
   try {
     await client.query('BEGIN');

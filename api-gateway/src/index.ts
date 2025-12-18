@@ -48,25 +48,38 @@ async function main() {
 const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
 
 signals.forEach((signal) => {
-  process.on(signal, async () => {
-    console.log(`\n${signal} received, shutting down gracefully...`);
-    
-    try {
-      // Close server connections
-      await app.close();
-      
-      // Call our custom graceful shutdown handler
-      if (app.gracefulShutdown) {
-        await app.gracefulShutdown();
+  process.on(signal, () => {
+    void (async () => {
+      const logLine = `\n${signal} received, shutting down gracefully...`;
+      if (app?.log) {
+        app.log.info(logLine);
+      } else {
+        process.stderr.write(`${logLine}\n`);
       }
-      
-      console.log('Shutdown complete');
-      process.exit(0);
-    } catch (error) {
-      console.error('Error during shutdown:', error);
-      process.exit(1);
-    }
+
+      try {
+        // Close server connections
+        await app.close();
+
+        // Call our custom graceful shutdown handler
+        if (app.gracefulShutdown) {
+          await app.gracefulShutdown();
+        }
+
+        if (app?.log) {
+          app.log.info('Shutdown complete');
+        }
+        process.exit(0);
+      } catch (error) {
+        if (app?.log) {
+          app.log.error({ err: error }, 'Error during shutdown');
+        } else {
+          process.stderr.write('Error during shutdown\n');
+        }
+        process.exit(1);
+      }
+    })();
   });
 });
 
-main();
+void main();

@@ -39,9 +39,9 @@
  * ```
  */
 
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyPluginCallback, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
-import type Redis from 'ioredis';
+import type { Redis } from 'ioredis';
 import {
   AuthService,
   JWTProvider,
@@ -53,7 +53,6 @@ import {
   type UserRole,
   AuthError,
   PermissionDeniedError,
-  TokenMissingError,
 } from '../auth/index.js';
 
 /**
@@ -134,37 +133,29 @@ declare module 'fastify' {
 /**
  * Default paths to skip authentication
  */
-const DEFAULT_SKIP_PATHS = [
-  /^\/health/,
-  /^\/metrics/,
-  /^\/docs/,
-  /^\/swagger/,
-];
+const DEFAULT_SKIP_PATHS = [/^\/health/, /^\/metrics/, /^\/docs/, /^\/swagger/];
 
 /**
  * Auth Plugin Implementation
  */
-const authPluginAsync: FastifyPluginAsync<AuthPluginOptions> = async (
-  fastify,
-  options
-) => {
-  const { redis, jwt, cache, service, skipPaths = DEFAULT_SKIP_PATHS, enableGlobal = false } = options;
+const authPluginFn: FastifyPluginCallback<AuthPluginOptions> = (fastify, options, done) => {
+  const {
+    redis,
+    jwt,
+    cache,
+    service,
+    skipPaths = DEFAULT_SKIP_PATHS,
+    enableGlobal = false,
+  } = options;
 
   // Create JWT provider
   const jwtProvider = new JWTProvider(jwt, fastify.log);
 
   // Create token cache service (optional)
-  const tokenCache = redis
-    ? new TokenCacheService(redis, fastify.log, cache)
-    : null;
+  const tokenCache = redis ? new TokenCacheService(redis, fastify.log, cache) : null;
 
   // Create auth service
-  const authService = new AuthService(
-    jwtProvider,
-    tokenCache,
-    fastify.log,
-    service
-  );
+  const authService = new AuthService(jwtProvider, tokenCache, fastify.log, service);
 
   // Decorate fastify instance with auth service
   fastify.decorate('auth', authService);
@@ -176,14 +167,14 @@ const authPluginAsync: FastifyPluginAsync<AuthPluginOptions> = async (
   /**
    * Add authenticate method to each request
    */
-  fastify.addHook('onRequest', async (request) => {
+  fastify.addHook('onRequest', (request, _reply, doneHook) => {
     // Reset user on each request
     request.user = null;
 
     // Add authenticate method
     request.authenticate = async (): Promise<TokenPayload> => {
-      const authHeader = request.headers.authorization;
-      const token = authService.extractTokenFromHeader(authHeader);
+      const authHeader = request.headers.authorization ?? undefined;
+      const token = authService.extractTokenFromHeader(authHeader) ?? undefined;
 
       const result = await authService.authenticate(token);
 
@@ -194,6 +185,8 @@ const authPluginAsync: FastifyPluginAsync<AuthPluginOptions> = async (
       request.user = result.payload;
       return result.payload;
     };
+
+    doneHook();
   });
 
   /**
@@ -203,9 +196,7 @@ const authPluginAsync: FastifyPluginAsync<AuthPluginOptions> = async (
     const routeConfig = request.routeOptions.config as RouteAuthConfig;
 
     // Check if path should skip authentication
-    const shouldSkip = skipPaths.some((pattern) =>
-      pattern.test(request.url)
-    );
+    const shouldSkip = skipPaths.some((pattern) => pattern.test(request.url));
 
     if (shouldSkip) {
       return;
@@ -230,10 +221,8 @@ const authPluginAsync: FastifyPluginAsync<AuthPluginOptions> = async (
     if (routeConfig?.roles && routeConfig.roles.length > 0) {
       if (!request.user || !authService.hasRole(request.user, routeConfig.roles)) {
         handleAuthError(
-          new PermissionDeniedError(
-            `Required role: ${routeConfig.roles.join(' or ')}`
-          ),
-          reply
+          new PermissionDeniedError(`Required role: ${routeConfig.roles.join(' or ')}`),
+          reply,
         );
         return;
       }
@@ -243,10 +232,7 @@ const authPluginAsync: FastifyPluginAsync<AuthPluginOptions> = async (
     if (routeConfig?.permissions && routeConfig.permissions.length > 0) {
       for (const permission of routeConfig.permissions) {
         if (!request.user || !authService.hasPermission(request.user, permission)) {
-          handleAuthError(
-            new PermissionDeniedError(`Required permission: ${permission}`),
-            reply
-          );
+          handleAuthError(new PermissionDeniedError(`Required permission: ${permission}`), reply);
           return;
         }
       }
@@ -270,6 +256,8 @@ const authPluginAsync: FastifyPluginAsync<AuthPluginOptions> = async (
   }
 
   fastify.log.info('Auth plugin registered');
+
+  done();
 };
 
 /**
@@ -278,7 +266,7 @@ const authPluginAsync: FastifyPluginAsync<AuthPluginOptions> = async (
  * @remarks
  * Using fastify-plugin ensures decorators are available in parent scope.
  */
-export const authPlugin = fp(authPluginAsync, {
+export const authPlugin = fp(authPluginFn, {
   name: 'auth',
   fastify: '4.x',
   dependencies: [],

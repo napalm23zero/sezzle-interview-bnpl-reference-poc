@@ -11,15 +11,14 @@
  * - GET /auth/me - Get current user info (protected)
  */
 
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyPluginCallback } from 'fastify';
 import type { Pool } from 'pg';
-import type Redis from 'ioredis';
+import type { Redis } from 'ioredis';
 import { randomUUID } from 'crypto';
 import { UserRepository } from '../users/repositories/user.repository.js';
 import { RefreshTokenRepository } from '../users/repositories/refresh-token.repository.js';
 import { passwordService } from '../users/services/password.service.js';
 import { toPublicUser } from '../users/entities/user.entity.js';
-import type { UserRole } from '../auth/index.js';
 
 /**
  * Route options
@@ -87,7 +86,7 @@ function parseExpiryToMs(expiry: string): number {
 /**
  * Auth Routes Plugin
  */
-export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (fastify, options) => {
+export const authRoutes: FastifyPluginCallback<AuthRoutesOptions> = (fastify, options, done) => {
   const { pool, redis, jwtProvider, config } = options;
   const userRepo = new UserRepository(pool, fastify.log);
   const tokenRepo = new RefreshTokenRepository(pool, redis, fastify.log);
@@ -166,7 +165,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (fastify,
       const tokenId = randomUUID();
       const accessToken = await jwtProvider.generateAccessToken({
         sub: user.id,
-        role: user.role as UserRole,
+        role: user.role,
         permissions: [],
       });
 
@@ -174,7 +173,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (fastify,
 
       // Store refresh token
       await tokenRepo.create({
-        id: tokenId,
+        tokenId,
         userId: user.id,
         expiresAt: new Date(Date.now() + refreshTokenTtlMs),
       });
@@ -514,6 +513,8 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (fastify,
       });
     },
   );
+
+  done();
 };
 
 export default authRoutes;

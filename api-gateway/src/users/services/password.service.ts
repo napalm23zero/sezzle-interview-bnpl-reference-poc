@@ -128,7 +128,6 @@ export class PasswordService {
    */
   needsRehash(hash: string): boolean {
     return argon2.needsRehash(hash, {
-      type: argon2.argon2id,
       memoryCost: this.config.memoryCost,
       timeCost: this.config.timeCost,
     });
@@ -165,7 +164,7 @@ export class PasswordService {
 
     if (PASSWORD_REQUIREMENTS.requireSpecialChars) {
       const specialCharsRegex = new RegExp(
-        `[${PASSWORD_REQUIREMENTS.specialChars.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}]`
+        `[${PASSWORD_REQUIREMENTS.specialChars.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}]`,
       );
       if (!specialCharsRegex.test(password)) {
         errors.push('Password must contain at least one special character');

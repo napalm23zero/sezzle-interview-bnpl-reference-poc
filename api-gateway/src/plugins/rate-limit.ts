@@ -15,9 +15,16 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import rateLimit from '@fastify/rate-limit';
-import { Redis } from 'ioredis';
+import { Redis, type Redis as RedisClient } from 'ioredis';
 import { config } from '../config/index.js';
 import { ErrorCodes, buildErrorResponse } from '../errors/index.js';
+
+function asErrorInfo(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message, stack: error.stack };
+  }
+  return { message: typeof error === 'string' ? error : 'Unknown error' };
+}
 
 /**
  * Custom key generator - uses IP for rate limiting
@@ -52,14 +59,19 @@ function errorResponseBuilder(request: FastifyRequest, context: { max: number; t
 /**
  * Create Redis client for rate limiting
  */
-function createRedisClient(app: FastifyInstance): Redis | null {
+function createRedisClient(app: FastifyInstance): RedisClient | null {
+  // Tests should not depend on external Redis
+  if (config.nodeEnv === 'test') {
+    return null;
+  }
+
   if (!config.rateLimit.useRedis || !config.redis.enabled || !config.redis.url) {
     app.log.info('Rate limiting using IN-MEMORY store');
     return null;
   }
 
   try {
-    const client = new Redis(config.redis.url, {
+    const client: RedisClient = new Redis(config.redis.url, {
       maxRetriesPerRequest: 1,
       enableReadyCheck: true,
       retryStrategy: (times: number) => {
@@ -81,7 +93,7 @@ function createRedisClient(app: FastifyInstance): Redis | null {
 
     return client;
   } catch (err) {
-    app.log.warn({ err }, 'Failed to create Redis client, using in-memory store');
+    app.log.warn({ err: asErrorInfo(err) }, 'Failed to create Redis client, using in-memory store');
     return null;
   }
 }

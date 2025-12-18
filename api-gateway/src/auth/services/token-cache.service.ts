@@ -31,12 +31,20 @@
 
 import { createHash } from 'crypto';
 import type { FastifyBaseLogger } from 'fastify';
-import type Redis from 'ioredis';
-import type {
-  TokenPayload,
-  TokenCacheEntry,
-  RevokedTokenEntry,
-} from '../interfaces/index.js';
+import type { Redis } from 'ioredis';
+import type { TokenPayload, TokenCacheEntry, RevokedTokenEntry } from '../interfaces/index.js';
+
+function isTokenCacheEntry(value: unknown): value is TokenCacheEntry {
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as Record<string, unknown>;
+
+  return (
+    typeof record.cachedAt === 'number' &&
+    typeof record.expiresAt === 'number' &&
+    typeof record.payload === 'object' &&
+    record.payload !== null
+  );
+}
 
 /**
  * Configuration for TokenCacheService
@@ -87,11 +95,7 @@ export class TokenCacheService {
   private readonly logger: FastifyBaseLogger;
   private readonly config: Required<TokenCacheConfig>;
 
-  constructor(
-    redis: Redis,
-    logger: FastifyBaseLogger,
-    config: TokenCacheConfig = {}
-  ) {
+  constructor(redis: Redis, logger: FastifyBaseLogger, config: TokenCacheConfig = {}) {
     this.redis = redis;
     this.logger = logger.child({ component: 'TokenCacheService' });
     this.config = {
@@ -133,11 +137,7 @@ export class TokenCacheService {
    * @param payload - Decoded token payload
    * @param ttlSeconds - Time to live (defaults to token expiry or config)
    */
-  async cacheToken(
-    token: string,
-    payload: TokenPayload,
-    ttlSeconds?: number
-  ): Promise<void> {
+  async cacheToken(token: string, payload: TokenPayload, ttlSeconds?: number): Promise<void> {
     if (!this.config.enabled) {
       return;
     }
@@ -176,16 +176,10 @@ export class TokenCacheService {
         await this.redis.expire(userKey, this.config.revokedTokenTtl);
       }
 
-      this.logger.debug(
-        { tokenId: payload.jti, ttl },
-        'Token cached successfully'
-      );
+      this.logger.debug({ tokenId: payload.jti, ttl }, 'Token cached successfully');
     } catch (error) {
       // Cache failures should not break authentication
-      this.logger.warn(
-        { error, tokenId: payload.jti },
-        'Failed to cache token'
-      );
+      this.logger.warn({ error, tokenId: payload.jti }, 'Failed to cache token');
     }
   }
 
@@ -208,7 +202,13 @@ export class TokenCacheService {
         return null;
       }
 
-      const entry: TokenCacheEntry = JSON.parse(cached);
+      const parsed: unknown = JSON.parse(cached);
+      if (!isTokenCacheEntry(parsed)) {
+        await this.redis.del(key);
+        return null;
+      }
+
+      const entry: TokenCacheEntry = parsed;
 
       // Double-check expiration
       if (entry.expiresAt && entry.expiresAt < Date.now()) {
@@ -263,11 +263,7 @@ export class TokenCacheService {
    * @param userId - Optional user ID for tracking
    * @param reason - Optional revocation reason
    */
-  async revokeToken(
-    tokenId: string,
-    userId?: string,
-    reason?: string
-  ): Promise<void> {
+  async revokeToken(tokenId: string, userId?: string, reason?: string): Promise<void> {
     try {
       const key = this.getRevokedKey(tokenId);
 
@@ -278,11 +274,7 @@ export class TokenCacheService {
         userId,
       };
 
-      await this.redis.setex(
-        key,
-        this.config.revokedTokenTtl,
-        JSON.stringify(entry)
-      );
+      await this.redis.setex(key, this.config.revokedTokenTtl, JSON.stringify(entry));
 
       this.logger.info({ tokenId, userId, reason }, 'Token revoked');
     } catch (error) {
@@ -321,7 +313,7 @@ export class TokenCacheService {
         pipeline.setex(
           this.getRevokedKey(tokenId),
           this.config.revokedTokenTtl,
-          JSON.stringify(entry)
+          JSON.stringify(entry),
         );
       }
 
@@ -330,10 +322,7 @@ export class TokenCacheService {
 
       await pipeline.exec();
 
-      this.logger.info(
-        { userId, tokenCount: tokenIds.length, reason },
-        'All user tokens revoked'
-      );
+      this.logger.info({ userId, tokenCount: tokenIds.length, reason }, 'All user tokens revoked');
 
       return tokenIds.length;
     } catch (error) {

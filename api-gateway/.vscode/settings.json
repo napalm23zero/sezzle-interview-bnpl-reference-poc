@@ -19,5 +19,6 @@
   "search.exclude": {
     "**/node_modules": true,
     "**/dist": true
-  }
+  },
+  "workbench.colorTheme": "Default Dark Modern"
 }

@@ -4,7 +4,7 @@
  * Domain model for user accounts.
  */
 
-import type { UserRole } from '../auth/index.js';
+import type { UserRole } from '../../auth/index.js';
 
 /**
  * User status enum
@@ -114,5 +114,6 @@ export function rowToUser(row: Record<string, unknown>): User {
  */
 export function toPublicUser(user: User): UserPublic {
   const { passwordHash, ...publicUser } = user;
+  void passwordHash;
   return publicUser;
 }

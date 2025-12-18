@@ -32,7 +32,7 @@ function parseJson<T>(value: string | undefined, defaultValue: T): T {
   try {
     return JSON.parse(value) as T;
   } catch {
-    console.warn(`Failed to parse JSON env var: ${value}`);
+    process.stderr.write(`Failed to parse JSON env var: ${value}\n`);
     return defaultValue;
   }
 }

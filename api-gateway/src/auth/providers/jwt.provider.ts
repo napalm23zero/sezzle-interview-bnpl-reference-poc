@@ -41,7 +41,6 @@ import type {
   TokenGenerationOptions,
   TokenVerificationOptions,
   TokenVerificationResult,
-  UserRole,
 } from '../interfaces/index.js';
 import {
   TokenExpiredError,
@@ -171,7 +170,7 @@ export class JWTProvider implements IAuthProvider {
         issuer: this.config.issuer,
         accessTokenExpiry: this.config.accessTokenExpiry,
       },
-      'JWT Provider initialized'
+      'JWT Provider initialized',
     );
   }
 
@@ -180,7 +179,7 @@ export class JWTProvider implements IAuthProvider {
    */
   async generateAccessToken(
     payload: Omit<TokenPayload, 'iat' | 'exp' | 'jti' | 'iss' | 'aud' | 'type'>,
-    options?: TokenGenerationOptions
+    options?: TokenGenerationOptions,
   ): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
     const expiry = options?.expiresIn
@@ -198,15 +197,13 @@ export class JWTProvider implements IAuthProvider {
     };
 
     try {
-      const token = await new jose.SignJWT(
-        fullPayload as unknown as jose.JWTPayload
-      )
+      const token = await new jose.SignJWT(fullPayload as unknown as jose.JWTPayload)
         .setProtectedHeader({ alg: this.config.algorithm })
         .sign(this.secretKey);
 
       this.logger.debug(
         { sub: payload.sub, jti: fullPayload.jti, expiresIn: expiry },
-        'Access token generated'
+        'Access token generated',
       );
 
       return token;
@@ -221,7 +218,7 @@ export class JWTProvider implements IAuthProvider {
    */
   async generateRefreshToken(
     payload: Pick<TokenPayload, 'sub'>,
-    options?: TokenGenerationOptions
+    options?: TokenGenerationOptions,
   ): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
     const expiry = options?.expiresIn
@@ -239,15 +236,13 @@ export class JWTProvider implements IAuthProvider {
     };
 
     try {
-      const token = await new jose.SignJWT(
-        fullPayload as unknown as jose.JWTPayload
-      )
+      const token = await new jose.SignJWT(fullPayload as unknown as jose.JWTPayload)
         .setProtectedHeader({ alg: this.config.algorithm })
         .sign(this.secretKey);
 
       this.logger.debug(
         { sub: payload.sub, jti: fullPayload.jti, expiresIn: expiry },
-        'Refresh token generated'
+        'Refresh token generated',
       );
 
       return token;
@@ -262,7 +257,7 @@ export class JWTProvider implements IAuthProvider {
    */
   async verifyAccessToken(
     token: string,
-    options?: TokenVerificationOptions
+    options?: TokenVerificationOptions,
   ): Promise<TokenVerificationResult<TokenPayload>> {
     return this.verifyToken<TokenPayload>(token, 'access', options);
   }
@@ -272,7 +267,7 @@ export class JWTProvider implements IAuthProvider {
    */
   async verifyRefreshToken(
     token: string,
-    options?: TokenVerificationOptions
+    options?: TokenVerificationOptions,
   ): Promise<TokenVerificationResult<RefreshTokenPayload>> {
     return this.verifyToken<RefreshTokenPayload>(token, 'refresh', options);
   }
@@ -280,10 +275,18 @@ export class JWTProvider implements IAuthProvider {
   /**
    * Internal token verification with type checking
    */
-  private async verifyToken<T extends TokenPayload>(
+  private async verifyToken<
+    T extends {
+      sub: string;
+      type: 'access' | 'refresh';
+      iat: number;
+      exp: number;
+      jti?: string;
+    },
+  >(
     token: string,
     expectedType: 'access' | 'refresh',
-    options?: TokenVerificationOptions
+    options?: TokenVerificationOptions,
   ): Promise<TokenVerificationResult<T>> {
     try {
       const verifyOptions: jose.JWTVerifyOptions = {
@@ -301,11 +304,7 @@ export class JWTProvider implements IAuthProvider {
         verifyOptions.audience = options?.audience ?? this.config.audience;
       }
 
-      const { payload } = await jose.jwtVerify(
-        token,
-        this.secretKey,
-        verifyOptions
-      );
+      const { payload } = await jose.jwtVerify(token, this.secretKey, verifyOptions);
 
       // Cast and validate type
       const typedPayload = payload as unknown as T;
@@ -314,15 +313,13 @@ export class JWTProvider implements IAuthProvider {
       if (typedPayload.type !== expectedType) {
         return {
           success: false,
-          error: new TokenInvalidError(
-            `Expected ${expectedType} token, got ${typedPayload.type}`
-          ),
+          error: new TokenInvalidError(`Expected ${expectedType} token, got ${typedPayload.type}`),
         };
       }
 
       this.logger.debug(
         { sub: typedPayload.sub, jti: typedPayload.jti, type: expectedType },
-        'Token verified successfully'
+        'Token verified successfully',
       );
 
       return {
@@ -340,21 +337,19 @@ export class JWTProvider implements IAuthProvider {
    * Useful for extracting claims before full verification.
    * WARNING: Do not trust unverified tokens!
    */
-  async decodeToken(token: string): Promise<TokenPayload | null> {
+  decodeToken(token: string): Promise<TokenPayload | null> {
     try {
       const decoded = jose.decodeJwt(token);
-      return decoded as unknown as TokenPayload;
+      return Promise.resolve(decoded as unknown as TokenPayload);
     } catch {
-      return null;
+      return Promise.resolve(null);
     }
   }
 
   /**
    * Handle jose verification errors and convert to our error types
    */
-  private handleVerificationError(
-    error: unknown
-  ): TokenVerificationResult<never> {
+  private handleVerificationError(error: unknown): TokenVerificationResult<never> {
     if (error instanceof jose.errors.JWTExpired) {
       return {
         success: false,
@@ -392,16 +387,10 @@ export class JWTProvider implements IAuthProvider {
       };
     }
 
-    if (
-      error instanceof jose.errors.JOSEError ||
-      error instanceof jose.errors.JWTInvalid
-    ) {
+    if (error instanceof jose.errors.JOSEError || error instanceof jose.errors.JWTInvalid) {
       return {
         success: false,
-        error: new TokenMalformedError(
-          'Token format is invalid',
-          (error as Error).message
-        ),
+        error: new TokenMalformedError('Token format is invalid', (error as Error).message),
       };
     }
 
@@ -409,10 +398,7 @@ export class JWTProvider implements IAuthProvider {
     this.logger.error({ error }, 'Unknown token verification error');
     return {
       success: false,
-      error: new TokenInvalidError(
-        'Token verification failed',
-        (error as Error)?.message
-      ),
+      error: new TokenInvalidError('Token verification failed', (error as Error)?.message),
     };
   }
 

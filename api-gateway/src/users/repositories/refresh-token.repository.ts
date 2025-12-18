@@ -6,13 +6,27 @@
  */
 
 import type { Pool } from 'pg';
-import type Redis from 'ioredis';
+import type { Redis } from 'ioredis';
 import type { FastifyBaseLogger } from 'fastify';
 import {
   type RefreshToken,
   type CreateRefreshTokenInput,
   rowToRefreshToken,
 } from '../entities/refresh-token.entity.js';
+
+function parseCacheEntry(value: string): { userId?: string; revoked?: boolean } | null {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const record = parsed as Record<string, unknown>;
+    return {
+      userId: typeof record.userId === 'string' ? record.userId : undefined,
+      revoked: typeof record.revoked === 'boolean' ? record.revoked : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Refresh Token Repository Interface
@@ -47,7 +61,7 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
     pool: Pool,
     redis: Redis | null,
     logger: FastifyBaseLogger,
-    tokenTtlSeconds: number = 604800 // 7 days default
+    tokenTtlSeconds: number = 604800, // 7 days default
   ) {
     this.pool = pool;
     this.redis = redis;
@@ -59,7 +73,7 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
    * Create a new refresh token
    */
   async create(input: CreateRefreshTokenInput): Promise<RefreshToken> {
-    const result = await this.pool.query(
+    const result = await this.pool.query<Record<string, unknown>>(
       `INSERT INTO refresh_tokens (
         token_id,
         user_id,
@@ -76,10 +90,15 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
         input.userAgent || null,
         input.ipAddress || null,
         input.deviceName || null,
-      ]
+      ],
     );
 
-    const token = rowToRefreshToken(result.rows[0]);
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error('Failed to create refresh token');
+    }
+
+    const token = rowToRefreshToken(row);
 
     // Cache in Redis for fast lookup
     if (this.redis) {
@@ -88,7 +107,7 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
         await this.redis.setex(
           REDIS_KEYS.TOKEN(input.tokenId),
           ttl,
-          JSON.stringify({ userId: input.userId, revoked: false })
+          JSON.stringify({ userId: input.userId, revoked: false }),
         );
 
         // Track user's tokens
@@ -110,8 +129,8 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
     if (this.redis) {
       const cached = await this.redis.get(REDIS_KEYS.TOKEN(tokenId));
       if (cached) {
-        const data = JSON.parse(cached);
-        if (data.revoked) {
+        const data = parseCacheEntry(cached);
+        if (data?.revoked) {
           return null; // Token is revoked
         }
       }
@@ -124,53 +143,59 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
     }
 
     // Query database
-    const result = await this.pool.query(
+    const result = await this.pool.query<Record<string, unknown>>(
       `SELECT * FROM refresh_tokens 
        WHERE token_id = $1 
        AND revoked = FALSE 
        AND expires_at > NOW()`,
-      [tokenId]
+      [tokenId],
     );
 
     if (result.rows.length === 0) {
       return null;
     }
 
-    return rowToRefreshToken(result.rows[0]);
+    const row = result.rows[0];
+    if (!row) {
+      return null;
+    }
+
+    return rowToRefreshToken(row);
   }
 
   /**
    * Revoke a refresh token
    */
   async revoke(tokenId: string, reason?: string): Promise<boolean> {
-    const result = await this.pool.query(
+    const result = await this.pool.query<Record<string, unknown>>(
       `UPDATE refresh_tokens SET 
         revoked = TRUE,
         revoked_at = NOW(),
         revoked_reason = $2
       WHERE token_id = $1 AND revoked = FALSE
       RETURNING user_id`,
-      [tokenId, reason || 'User logout']
+      [tokenId, reason || 'User logout'],
     );
 
     if (result.rowCount === 0) {
       return false;
     }
 
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error('Expected refresh token revoke result row');
+    }
+
     // Update Redis
     if (this.redis) {
       // Mark as revoked in cache
-      await this.redis.setex(
-        REDIS_KEYS.REVOKED(tokenId),
-        this.tokenTtl,
-        'revoked'
-      );
+      await this.redis.setex(REDIS_KEYS.REVOKED(tokenId), this.tokenTtl, 'revoked');
 
       // Remove from active tokens
       await this.redis.del(REDIS_KEYS.TOKEN(tokenId));
 
       // Remove from user's token set
-      const userId = result.rows[0].user_id;
+      const userId = String(row.user_id);
       await this.redis.srem(REDIS_KEYS.USER_TOKENS(userId), tokenId);
     }
 
@@ -183,21 +208,21 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
    * Revoke all tokens for a user
    */
   async revokeAllForUser(userId: string, reason?: string): Promise<number> {
-    const result = await this.pool.query(
+    const result = await this.pool.query<Record<string, unknown>>(
       `UPDATE refresh_tokens SET 
         revoked = TRUE,
         revoked_at = NOW(),
         revoked_reason = $2
       WHERE user_id = $1 AND revoked = FALSE
       RETURNING token_id`,
-      [userId, reason || 'Logout all devices']
+      [userId, reason || 'Logout all devices'],
     );
 
     const count = result.rowCount || 0;
 
     // Update Redis
     if (this.redis && count > 0) {
-      const tokenIds = result.rows.map((row) => row.token_id);
+      const tokenIds = result.rows.map((row) => String(row.token_id));
 
       const pipeline = this.redis.pipeline();
       for (const tokenId of tokenIds) {
@@ -217,10 +242,9 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
    * Update last used timestamp
    */
   async updateLastUsed(tokenId: string): Promise<void> {
-    await this.pool.query(
-      'UPDATE refresh_tokens SET last_used_at = NOW() WHERE token_id = $1',
-      [tokenId]
-    );
+    await this.pool.query('UPDATE refresh_tokens SET last_used_at = NOW() WHERE token_id = $1', [
+      tokenId,
+    ]);
   }
 
   /**
@@ -230,7 +254,7 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
     const result = await this.pool.query(
       `DELETE FROM refresh_tokens 
        WHERE expires_at < NOW() - INTERVAL '7 days'
-       OR (revoked = TRUE AND revoked_at < NOW() - INTERVAL '30 days')`
+       OR (revoked = TRUE AND revoked_at < NOW() - INTERVAL '30 days')`,
     );
 
     const count = result.rowCount || 0;
@@ -252,7 +276,7 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
        AND revoked = FALSE 
        AND expires_at > NOW()
        ORDER BY issued_at DESC`,
-      [userId]
+      [userId],
     );
 
     return result.rows.map(rowToRefreshToken);

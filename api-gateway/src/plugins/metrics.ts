@@ -113,6 +113,9 @@ function metricsPluginFn(app: FastifyInstance, _opts: Record<string, unknown>, d
 
   // Record metrics on response
   app.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
+    // Always decrement active connections
+    activeConnections.dec();
+
     // Skip metrics endpoint itself to avoid recursion
     if (request.url === '/metrics') return;
 
@@ -131,9 +134,6 @@ function metricsPluginFn(app: FastifyInstance, _opts: Record<string, unknown>, d
 
     // Record duration
     httpRequestDuration.observe(labels, duration);
-
-    // Decrement active connections
-    activeConnections.dec();
 
     // Track rate limit hits (429 status)
     if (reply.statusCode === 429) {

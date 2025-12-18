@@ -12,7 +12,7 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 const CORRELATION_ID_HEADER = 'x-correlation-id';
 
@@ -29,7 +29,7 @@ const CORRELATION_ID_HEADER = 'x-correlation-id';
  */
 function generateSecureCorrelationId(): string {
   // 1. UUID v4 for uniqueness
-  const uuid = crypto.randomUUID();
+  const uuid = randomUUID();
 
   // 2. Timestamp with noise (prevents timing-based prediction)
   const timestamp = Date.now().toString();
@@ -63,9 +63,9 @@ function isValidCorrelationId(id: string): boolean {
   return true;
 }
 
-async function correlationId(app: FastifyInstance) {
+function correlationId(app: FastifyInstance, _opts: Record<string, unknown>, done: () => void) {
   // Add correlation ID to every request
-  app.addHook('onRequest', async (request: FastifyRequest, _reply: FastifyReply) => {
+  app.addHook('onRequest', (request: FastifyRequest, _reply: FastifyReply, done) => {
     // Check for existing correlation ID from upstream
     const existingId = request.headers[CORRELATION_ID_HEADER];
 
@@ -80,15 +80,17 @@ async function correlationId(app: FastifyInstance) {
 
     // Add to logger context for automatic inclusion in logs
     request.log = request.log.child({ correlationId });
+    done();
   });
 
   // Add correlation ID to every response
-  app.addHook('onSend', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.addHook('onSend', (request: FastifyRequest, reply: FastifyReply, payload, done) => {
     reply.header(CORRELATION_ID_HEADER, request.correlationId);
+    done(null, payload);
   });
 
   // Log request completion with correlation ID
-  app.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.addHook('onResponse', (request: FastifyRequest, reply: FastifyReply, done) => {
     request.log.info(
       {
         method: request.method,
@@ -98,7 +100,10 @@ async function correlationId(app: FastifyInstance) {
       },
       'request completed',
     );
+    done();
   });
+
+  done();
 }
 
 // Extend FastifyRequest type to include correlationId

@@ -159,7 +159,7 @@ The correlation ID is:
 1. Generated on incoming request (or reused if valid header exists)
 2. Added to all log entries automatically
 3. Included in response headers
-4. Forwarded to downstream services (when proxy routes are implemented)
+4. Forwarded to downstream services (via proxy routes)
 
 ---
 
@@ -721,6 +721,21 @@ Features:
 
 ---
 
+## ❤️ Health & Readiness
+
+- `GET /health` is a **liveness** probe (process is up) and returns `200` with `status: "ok"`.
+- `GET /ready` is a **readiness** probe and checks critical dependencies with short timeouts:
+  - `database`: `ok` | `unhealthy` | `skipped` (when DB pool isn’t initialized)
+  - `redis`: `ok` | `unhealthy` | `skipped` (when Redis is disabled)
+  - `downstream`: `ok` | `unhealthy` | `not_configured` (reported but does **not** block readiness)
+
+`/ready` returns:
+
+- `200` when the gateway is ready
+- `503` when core dependencies are unhealthy
+
+Note: tests skip dependency checks (Vitest/test mode) to stay deterministic.
+
 ## 📁 Folder Structure
 
 ```
@@ -764,7 +779,7 @@ api-gateway/
 │   ├── routes/
 │   │   ├── auth.ts             # /auth/* routes
 │   │   ├── health.ts           # /health, /ready
-│   │   └── proxy.ts            # Proxy routes to services (TBD)
+│   │   └── proxy.ts            # Proxy routes to services
 │   │
 │   └── users/                  # User management module
 │       ├── entities/
@@ -778,15 +793,14 @@ api-gateway/
 │
 ├── test/
 │   ├── health.test.ts
-│   └── proxy.test.ts
+│
 │
 ├── package.json
 ├── tsconfig.json
 ├── .eslintrc.js
 ├── .prettierrc
-├── Dockerfile                  # Production build
 ├── README.md
-└── CHANGELOG.md
+
 ```
 
 ---
@@ -880,13 +894,13 @@ curl http://localhost:3000/health
    Body: { "customer_id": "cust_123", "amount_cents": 15000 }
 
 2. API Gateway processes it:
-   a) Generates Correlation ID: "550e8400-e29b-41d4-a716-446655440000"
+  a) Generates Correlation ID: "35d23671-2b1a1b95-75bb-4db2-877c-14a81a67fb04-6c83bc28"
    b) Checks rate limit: OK (23/100 requests in the last minute)
    c) Starts OpenTelemetry span: "POST /api/v1/orders"
    d) Logs: { "correlation_id": "...", "method": "POST", "path": "/api/v1/orders" }
-   e) Proxies to: http://orders-service:3001/orders
+  e) Proxies to: http://pulse-orders-service:3001
       Added headers: {
-        "X-Correlation-ID": "550e8400-e29b-41d4-a716-446655440000",
+      "X-Correlation-ID": "35d23671-2b1a1b95-75bb-4db2-877c-14a81a67fb04-6c83bc28",
         "traceparent": "00-abc123-def456-01"
       }
 
