@@ -1,4 +1,4 @@
-# Sezzle-Style Showcase Monorepo (36h) — “PulsePay BNPL Platform”
+# Sezzle-Style Showcase Monorepo — “PulsePay BNPL Platform”
 
 > **Goal:** build a **production-like** mini-platform that demonstrates Sezzle’s full backend + cloud + observability + CI/CD + AI-enablement stack, in a scope that is **deliverable in ~36h**, and that reviewers can run locally in **one command**.
 
